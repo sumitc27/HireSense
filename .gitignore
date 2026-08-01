@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-eval/
+
+# Env / secrets
+.env
+*.env
+!.env.example
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+*.local
+
+# Runtime state
+hiresense.db*
+*.sqlite
+
+# TTS model weights (downloaded via backend/scripts/download_models.py, ~300MB)
+backend/models/
+
+# Audio artifacts (recordings, smoke-test output, eval clips)
+*.wav
+*.webm
+*.mp3
+
+# Logs / dumps
+*.log
+*.err
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+#other files
+plan.md
+backend/eval/
+.env.example
+GUIDE.md
+Structure.md
+README.md
