@@ -20,6 +20,7 @@ import { SessionSetup, type SessionSetupValues } from "./components/SessionSetup
 import { TurnTimeline, type TimelineTurn } from "./components/TurnTimeline";
 import { TypedAnswerInput } from "./components/TypedAnswerInput";
 import { Waveform } from "./components/Waveform";
+import { Show, SignInButton, SignUpButton, useAuth } from "@clerk/react";
 
 type Phase = "setup" | "connecting" | "live" | "done";
 
@@ -30,6 +31,7 @@ type Phase = "setup" | "connecting" | "live" | "done";
 const MIC_ENABLED_STATES = new Set(["listening", "asking", "coaching"]);
 
 export default function App() {
+  const { getToken } = useAuth();
   useApplyTheme();
   const micMode = useStore((s) => s.micMode);
   const setMicMode = useStore((s) => s.setMicMode);
@@ -164,7 +166,8 @@ export default function App() {
       socket.send({ type: "playback_started", turn_id: turnId, seq: 0 });
 
     try {
-      await socket.connect();
+      const token = await getToken();
+      await socket.connect(token ?? undefined);
       socketRef.current = socket;
       socket.startSession(values.role, values.seniority, values.questionCount, values.resumeText);
       setPhase("live");
@@ -287,99 +290,122 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="bg-decorations flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
         <AppHeader>
           {phase === "live" && <LatencyBadge stages={latency} />}
         </AppHeader>
 
         <main className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 py-6">
-          {phase === "setup" || phase === "connecting" ? (
-            <SessionSetup onStart={start} starting={phase === "connecting"} />
-          ) : phase === "done" && report ? (
-            <div className="mt-6 w-full">
-              <ReportCard report={report} onNewInterview={stop} />
-            </div>
-          ) : (
-            <>
-              <div className="w-full max-w-2xl pb-2">
-                <TurnTimeline
-                  turns={timeline}
-                  total={question?.total ?? 1}
-                  currentIndex={question?.index ?? 0}
-                />
+          <Show when="signed-in">
+            {phase === "setup" || phase === "connecting" ? (
+              <SessionSetup onStart={start} starting={phase === "connecting"} />
+            ) : phase === "done" && report ? (
+              <div className="mt-6 w-full">
+                <ReportCard report={report} onNewInterview={stop} />
               </div>
-              <div className="scroll-thin w-full max-w-2xl flex-1 overflow-y-auto py-2">
-                <CaptionsPanel entries={captions} />
-                {currentRubric && (
-                  <div className="mt-3">
-                    <FeedbackCard rubric={currentRubric} />
-                  </div>
-                )}
-              </div>
-              <div className="flex w-full max-w-2xl flex-col items-center gap-3 border-t border-border pt-4">
-                <p className="text-xs text-muted-foreground">
-                  {statusLabel[turnState] ?? ""}
-                </p>
-                {!useTyped && <Waveform capture={captureRef.current} active={recording} />}
-                {useTyped ? (
-                  <div className="flex w-full items-end gap-2">
-                    <TypedAnswerInput
-                      onSubmit={submitTyped}
-                      disabled={turnState !== "listening"}
-                      autoFocus
-                    />
-                    {micOk && (
-                      <Button variant="outline" size="sm" onClick={() => setShowTyped(false)}>
-                        <MicIcon className="h-3.5 w-3.5" /> Voice
-                      </Button>
-                    )}
-                    <Button variant="outline" size="sm" onClick={stop}>
-                      <PhoneOff className="h-3.5 w-3.5" /> End
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setMicMode(micMode === "ptt" ? "open_mic" : "ptt")}
-                      title="Toggle push-to-talk vs. open mic"
-                    >
-                      {micMode === "ptt" ? <Hand className="h-3.5 w-3.5" /> : <Ear className="h-3.5 w-3.5" />}
-                      {micMode === "ptt" ? "Push-to-talk" : "Open mic"}
-                    </Button>
-                    {micMode === "ptt" ? (
-                      <MicControl
-                        enabled={micOk && MIC_ENABLED_STATES.has(turnState)}
-                        recording={recording}
-                        onPressStart={pressStart}
-                        onPressEnd={pressEnd}
-                      />
-                    ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border">
-                        <Ear
-                          className={
-                            recording ? "h-6 w-6 animate-pulse text-red-600" : "h-6 w-6 text-muted-foreground"
-                          }
-                        />
-                      </div>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => setShowTyped(true)}>
-                      <Keyboard className="h-3.5 w-3.5" /> Type instead
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={stop}>
-                      <PhoneOff className="h-3.5 w-3.5" /> End
-                    </Button>
-                  </div>
-                )}
-                {speaking && (
+            ) : (
+              <>
+                <div className="w-full max-w-2xl pb-2">
+                  <TurnTimeline
+                    turns={timeline}
+                    total={question?.total ?? 1}
+                    currentIndex={question?.index ?? 0}
+                  />
+                </div>
+                <div className="scroll-thin w-full max-w-2xl flex-1 overflow-y-auto py-2">
+                  <CaptionsPanel entries={captions} />
+                  {currentRubric && (
+                    <div className="mt-3">
+                      <FeedbackCard rubric={currentRubric} />
+                    </div>
+                  )}
+                </div>
+                <div className="flex w-full max-w-2xl flex-col items-center gap-3 border-t border-border pt-4">
                   <p className="text-xs text-muted-foreground">
-                    Coach is speaking — {micMode === "ptt" ? "hold the mic" : "start talking"} to interrupt.
+                    {statusLabel[turnState] ?? ""}
                   </p>
-                )}
+                  {!useTyped && <Waveform capture={captureRef.current} active={recording} />}
+                  {useTyped ? (
+                    <div className="flex w-full items-end gap-2">
+                      <TypedAnswerInput
+                        onSubmit={submitTyped}
+                        disabled={turnState !== "listening"}
+                        autoFocus
+                      />
+                      {micOk && (
+                        <Button variant="outline" size="sm" onClick={() => setShowTyped(false)}>
+                          <MicIcon className="h-3.5 w-3.5" /> Voice
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" onClick={stop}>
+                        <PhoneOff className="h-3.5 w-3.5" /> End
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setMicMode(micMode === "ptt" ? "open_mic" : "ptt")}
+                        title="Toggle push-to-talk vs. open mic"
+                      >
+                        {micMode === "ptt" ? <Hand className="h-3.5 w-3.5" /> : <Ear className="h-3.5 w-3.5" />}
+                        {micMode === "ptt" ? "Push-to-talk" : "Open mic"}
+                      </Button>
+                      {micMode === "ptt" ? (
+                        <MicControl
+                          enabled={micOk && MIC_ENABLED_STATES.has(turnState)}
+                          recording={recording}
+                          onPressStart={pressStart}
+                          onPressEnd={pressEnd}
+                        />
+                      ) : (
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border">
+                          <Ear
+                            className={
+                              recording ? "h-6 w-6 animate-pulse text-red-600" : "h-6 w-6 text-muted-foreground"
+                            }
+                          />
+                        </div>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => setShowTyped(true)}>
+                        <Keyboard className="h-3.5 w-3.5" /> Type instead
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={stop}>
+                        <PhoneOff className="h-3.5 w-3.5" /> End
+                      </Button>
+                    </div>
+                  )}
+                  {speaking && (
+                    <p className="text-xs text-muted-foreground">
+                      Coach is speaking — {micMode === "ptt" ? "hold the mic" : "start talking"} to interrupt.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </Show>
+          <Show when="signed-out">
+            <div className="mx-auto mt-20 max-w-md w-full text-center space-y-6 rounded-2xl border border-border bg-card/45 backdrop-blur-md p-8 shadow-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[hsl(var(--accent-teal))] to-[hsl(172,66%,30%)] text-white mx-auto shadow-sm">
+                <MicIcon className="h-6 w-6" />
               </div>
-            </>
-          )}
+              <div className="space-y-2">
+                <h2 className="text-xl font-bold tracking-tight text-foreground">Welcome to HireSense</h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Your real-time AI mock interview coach. Sign in to practice interview sessions with custom role, level, and resume integration.
+                </p>
+              </div>
+              <div className="flex justify-center gap-3">
+                <SignInButton mode="modal">
+                  <Button className="btn-shimmer font-semibold px-6">Sign In</Button>
+                </SignInButton>
+                <SignUpButton mode="modal">
+                  <Button variant="outline" className="font-semibold px-6">Sign Up</Button>
+                </SignUpButton>
+              </div>
+            </div>
+          </Show>
         </main>
       </div>
       <Toaster position="bottom-right" />

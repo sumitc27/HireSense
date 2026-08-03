@@ -25,6 +25,7 @@ import {
 import { deleteSession, getSession, listSessions, type SessionSummary } from "@/lib/api";
 import { ReportCard } from "./ReportCard";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@clerk/react";
 
 function statusColor(status: SessionSummary["status"]) {
   if (status === "completed") return "text-emerald-600 dark:text-emerald-400";
@@ -34,8 +35,12 @@ function statusColor(status: SessionSummary["status"]) {
 
 function SessionRow({ s, onOpen }: { s: SessionSummary; onOpen: (id: string) => void }) {
   const qc = useQueryClient();
+  const { getToken } = useAuth();
   const del = useMutation({
-    mutationFn: () => deleteSession(s.id),
+    mutationFn: async () => {
+      const token = await getToken();
+      return deleteSession(s.id, token ?? undefined);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["sessions"] });
       toast.success("Session deleted.");
@@ -82,16 +87,23 @@ function SessionRow({ s, onOpen }: { s: SessionSummary; onOpen: (id: string) => 
 export function SessionsMenu() {
   const [open, setOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const { getToken } = useAuth();
 
   const { data: sessions, isLoading } = useQuery({
     queryKey: ["sessions"],
-    queryFn: listSessions,
+    queryFn: async () => {
+      const token = await getToken();
+      return listSessions(token ?? undefined);
+    },
     enabled: open,
   });
 
   const { data: detail } = useQuery({
     queryKey: ["session", openId],
-    queryFn: () => getSession(openId as string),
+    queryFn: async () => {
+      const token = await getToken();
+      return getSession(openId as string, token ?? undefined);
+    },
     enabled: openId !== null,
   });
 

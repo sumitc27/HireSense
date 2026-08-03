@@ -1,41 +1,68 @@
-import { Moon, Sun, Monitor } from "lucide-react";
-import { useStore, type Theme } from "@/store";
-import { Button } from "@/components/ui/button";
+import { Moon, Sun } from "lucide-react";
+import { useStore } from "@/store";
+import { cn } from "@/lib/utils";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-
-const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
-];
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useStore();
 
+  // Resolve effective theme for visual indicator
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const cycle = () => {
+    if (theme === "light") setTheme("dark");
+    else if (theme === "dark") setTheme("system");
+    else setTheme("light");
+  };
+
+  const label =
+    theme === "system"
+      ? "System theme (click to switch to Light)"
+      : theme === "light"
+        ? "Light mode (click to switch to Dark)"
+        : "Dark mode (click to switch to System)";
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" title="Theme">
-          <Sun className="h-4 w-4 dark:hidden" />
-          <Moon className="hidden h-4 w-4 dark:block" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {OPTIONS.map(({ value, label, icon: Icon }) => (
-          <DropdownMenuItem
-            key={value}
-            onClick={() => setTheme(value)}
-            className={theme === value ? "bg-accent" : undefined}
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={cycle}
+          className="theme-switch"
+          aria-label={label}
+        >
+          {/* Sliding indicator */}
+          <span
+            className="theme-switch-indicator"
+            style={{ left: isDark ? "calc(100% - 27px)" : "3px" }}
+          />
+          {/* Sun icon */}
+          <span
+            className={cn(
+              "relative z-10 flex h-6 w-6 items-center justify-center rounded-full transition-colors duration-200",
+              !isDark ? "text-amber-500" : "text-muted-foreground/50"
+            )}
           >
-            <Icon className="h-4 w-4" /> {label}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <Sun className="h-3.5 w-3.5" />
+          </span>
+          {/* Moon icon */}
+          <span
+            className={cn(
+              "relative z-10 flex h-6 w-6 items-center justify-center rounded-full transition-colors duration-200",
+              isDark ? "text-blue-400" : "text-muted-foreground/50"
+            )}
+          >
+            <Moon className="h-3.5 w-3.5" />
+          </span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }

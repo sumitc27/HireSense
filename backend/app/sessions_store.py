@@ -53,7 +53,8 @@ def init_db() -> None:
                 status TEXT NOT NULL DEFAULT 'running',
                 created_at TEXT NOT NULL,
                 overall_average REAL,
-                top_improvements TEXT
+                top_improvements TEXT,
+                user_id TEXT
             )
             """
         )
@@ -75,6 +76,14 @@ def init_db() -> None:
             )
             """
         )
+        # Migration: Alter table to add user_id column if it does not exist
+        try:
+            cursor = conn.execute("PRAGMA table_info(sessions)")
+            columns = [row["name"] for row in cursor.fetchall()]
+            if "user_id" not in columns:
+                conn.execute("ALTER TABLE sessions ADD COLUMN user_id TEXT")
+        except Exception:
+            pass
 
 
 def _now() -> str:
@@ -82,13 +91,15 @@ def _now() -> str:
 
 
 @_retry_on_lock
-def create_session(session_id: str, role: str, seniority: str, question_count: int) -> None:
+def create_session(session_id: str, role: str, seniority: str, question_count: int, user_id: str | None = None) -> None:
     init_db()
+    if user_id is None:
+        user_id = "anonymous-developer"
     with _conn() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO sessions (id, role, seniority, question_count, status, created_at) "
-            "VALUES (?, ?, ?, ?, 'running', ?)",
-            (session_id, role, seniority, question_count, _now()),
+            "INSERT OR REPLACE INTO sessions (id, role, seniority, question_count, status, created_at, user_id) "
+            "VALUES (?, ?, ?, ?, 'running', ?, ?)",
+            (session_id, role, seniority, question_count, _now(), user_id),
         )
 
 
@@ -126,12 +137,17 @@ def finish_session(session_id: str, status: str, overall_average: float, top_imp
         )
 
 
-def list_sessions(limit: int = 50) -> list[dict]:
+def list_sessions(user_id: str | None = None, limit: int = 50) -> list[dict]:
     init_db()
     with _conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?", (limit,)
-        ).fetchall()
+        if user_id:
+            rows = conn.execute(
+                "SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?", (user_id, limit)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?", (limit,)
+            ).fetchall()
     out = []
     for r in rows:
         d = dict(r)
@@ -154,24 +170,30 @@ def _turn_row_to_dict(r: sqlite3.Row) -> dict:
     }
 
 
-def get_session(session_id: str) -> dict | None:
+def get_session(session_id: str, user_id: str | None = None) -> dict | None:
     init_db()
     with _conn() as conn:
         session_row = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
         if session_row is None:
             return None
+        d = dict(session_row)
+        if user_id is not None and d.get("user_id") != user_id:
+            return None
         turn_rows = conn.execute(
             "SELECT * FROM turns WHERE session_id = ? ORDER BY seq", (session_id,)
         ).fetchall()
-    d = dict(session_row)
     d["top_improvements"] = json.loads(d["top_improvements"]) if d["top_improvements"] else []
     d["turns"] = [_turn_row_to_dict(r) for r in turn_rows]
     return d
 
 
 @_retry_on_lock
-def delete_session(session_id: str) -> None:
+def delete_session(session_id: str, user_id: str | None = None) -> None:
     init_db()
     with _conn() as conn:
+        if user_id:
+            row = conn.execute("SELECT user_id FROM sessions WHERE id = ?", (session_id,)).fetchone()
+            if not row or row["user_id"] != user_id:
+                return
         conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
         conn.execute("DELETE FROM turns WHERE session_id = ?", (session_id,))

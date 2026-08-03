@@ -67,13 +67,14 @@ export class VoiceSocket {
 
   constructor(private handlers: VoiceSocketHandlers) {}
 
-  connect(): Promise<void> {
+  connect(token?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
       const base = WS_BASE.startsWith("ws")
         ? WS_BASE
         : `${proto}//${location.host}${WS_BASE}`;
-      const ws = new WebSocket(`${base}/session`);
+      const url = token ? `${base}/session?token=${encodeURIComponent(token)}` : `${base}/session`;
+      const ws = new WebSocket(url);
       ws.binaryType = "arraybuffer";
       ws.onopen = () => resolve();
       ws.onerror = (e) => {

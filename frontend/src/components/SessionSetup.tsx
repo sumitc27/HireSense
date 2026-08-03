@@ -8,7 +8,6 @@ import {
   WifiOff,
   Edit2,
   Play,
-  Sliders,
   AlertTriangle,
   Loader2,
   Check,
@@ -16,11 +15,21 @@ import {
   Upload,
   Trash2,
   FileText,
+  Briefcase,
+  Award,
+  HelpCircle,
+  Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { uploadResume } from "@/lib/api";
+import { useAuth } from "@clerk/react";
 
 const SENIORITIES = ["junior", "mid-level", "senior", "staff"] as const;
 const ROLE_PRESETS = [
@@ -31,12 +40,30 @@ const ROLE_PRESETS = [
   "product manager",
 ];
 
+const FILE_TYPE_CHIPS = [
+  { label: ".PDF", color: "text-red-400 bg-red-500/10 border-red-500/20" },
+  { label: ".DOCX", color: "text-blue-400 bg-blue-500/10 border-blue-500/20" },
+  { label: ".TXT", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+];
+
 export interface SessionSetupValues {
   role: string;
   seniority: string;
   questionCount: number;
   resumeText?: string;
   resumeFileName?: string;
+}
+
+/** Stylised microphone icon with teal gradient circle */
+function StylisedMicIcon({ className }: { className?: string }) {
+  return (
+    <div className={cn("relative inline-flex items-center justify-center", className)}>
+      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[hsl(var(--accent-teal))] to-[hsl(172,66%,35%)] opacity-15" />
+      <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-[hsla(var(--accent-teal),0.3)] bg-gradient-to-br from-[hsla(var(--accent-teal),0.15)] to-[hsla(172,66%,35%,0.08)]">
+        <Mic className="h-5 w-5 text-[hsl(var(--accent-teal))]" />
+      </div>
+    </div>
+  );
 }
 
 /** pre-interview configuration wizard:
@@ -52,6 +79,7 @@ export function SessionSetup({
   onStart: (values: SessionSetupValues) => void;
   starting: boolean;
 }) {
+  const { getToken } = useAuth();
   const [role, setRole] = useState(ROLE_PRESETS[0]);
   const [seniority, setSeniority] = useState<(typeof SENIORITIES)[number]>("senior");
   const [questionCount, setQuestionCount] = useState(3);
@@ -87,7 +115,8 @@ export function SessionSetup({
     setUploadError("");
 
     try {
-      const res = await uploadResume(file);
+      const token = await getToken();
+      const res = await uploadResume(file, token ?? undefined);
       setResumeText(res.text);
       setResumeFileName(file.name);
     } catch (err: any) {
@@ -110,25 +139,29 @@ export function SessionSetup({
   return (
     <>
       {step === "form" ? (
-        <Card className="mx-auto mt-10 w-full max-w-md p-6">
-          <div className="mb-5 text-center">
-            <Mic className="mx-auto mb-2 h-7 w-7 text-primary" />
-            <h2 className="text-lg font-semibold">Set up your mock interview</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+        <Card glass className="mx-auto mt-10 w-full max-w-md p-8">
+          <div className="mb-6 text-center">
+            <StylisedMicIcon className="mx-auto mb-3" />
+            <h2 className="text-lg font-bold tracking-tight">Set up your mock interview</h2>
+            <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
               The coach asks role-specific questions out loud, scores each answer,
               and coaches you back — in real time.
             </p>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Role field */}
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Role</label>
+              <label className="label-premium mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Briefcase className="h-3.5 w-3.5 text-[hsl(var(--accent-teal))]" />
+                Role
+              </label>
               <input
                 list="role-presets"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 placeholder="e.g. backend engineer"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring transition-shadow"
               />
               <datalist id="role-presets">
                 {ROLE_PRESETS.map((r) => (
@@ -137,19 +170,23 @@ export function SessionSetup({
               </datalist>
             </div>
 
+            {/* Seniority field */}
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Seniority</label>
-              <div className="grid grid-cols-4 gap-1.5">
+              <label className="label-premium mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Award className="h-3.5 w-3.5 text-[hsl(var(--accent-teal))]" />
+                Seniority
+              </label>
+              <div className="grid grid-cols-4 gap-2">
                 {SENIORITIES.map((s) => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => setSeniority(s)}
                     className={cn(
-                      "rounded-md border px-2 py-1.5 text-xs capitalize transition-colors",
+                      "rounded-lg border px-2.5 py-2 text-xs capitalize transition-all duration-200",
                       s === seniority
-                        ? "border-primary bg-primary/10 font-medium text-primary"
-                        : "border-border text-muted-foreground hover:bg-muted/50"
+                        ? "seniority-glow font-semibold"
+                        : "border-border/60 bg-transparent text-muted-foreground hover:border-border hover:bg-muted/30"
                     )}
                   >
                     {s}
@@ -158,8 +195,9 @@ export function SessionSetup({
               </div>
             </div>
 
+            {/* Question stepper */}
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              <label className="label-premium mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 Questions
               </label>
               <div className="flex items-center gap-3">
@@ -167,55 +205,82 @@ export function SessionSetup({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 rounded-full"
                   disabled={questionCount <= 1}
                   onClick={() => setQuestionCount((c) => Math.max(1, c - 1))}
                 >
                   <Minus className="h-3.5 w-3.5" />
                 </Button>
-                <span className="w-6 text-center text-sm tabular-nums">{questionCount}</span>
+                <span className="w-8 text-center text-base font-semibold tabular-nums">{questionCount}</span>
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8"
+                  className="h-8 w-8 rounded-full"
                   disabled={questionCount >= 6}
                   onClick={() => setQuestionCount((c) => Math.min(6, c + 1))}
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
-                <span className="text-xs text-muted-foreground">
-                  main question{questionCount > 1 ? "s" : ""} (plus follow-ups on weak answers)
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  main question{questionCount > 1 ? "s" : ""}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-3.5 w-3.5 cursor-help text-muted-foreground/70 hover:text-muted-foreground transition-colors" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-xs">
+                      Weak answers automatically trigger follow-up questions to help you improve.
+                    </TooltipContent>
+                  </Tooltip>
                 </span>
               </div>
             </div>
 
             {/* Resume Upload Section */}
-            <div className="rounded-lg border border-dashed border-border/80 bg-muted/5 p-4 space-y-2">
-              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <div className="rounded-xl border border-dashed border-border/80 bg-muted/5 p-4 space-y-2.5">
+              <label className="label-premium flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <FileText className="h-3.5 w-3.5 text-[hsl(var(--accent-teal))]" />
                 Resume (Optional)
               </label>
 
               {!resumeFileName ? (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   <div
                     onClick={() => !isUploading && fileInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center py-4 px-3 rounded-lg border border-dashed border-border hover:border-primary/50 bg-background cursor-pointer hover:bg-muted/10 transition-all text-center gap-2 group"
+                    className="flex flex-col items-center justify-center py-5 px-3 rounded-xl border border-dashed border-border hover:border-[hsl(var(--accent-teal))]/50 bg-background cursor-pointer hover:bg-muted/10 transition-all text-center gap-2.5 group"
                   >
                     {isUploading ? (
-                      <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                      <Loader2 className="h-6 w-6 text-[hsl(var(--accent-teal))] animate-spin" />
                     ) : (
-                      <Upload className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <Upload className="h-6 w-6 text-muted-foreground group-hover:text-[hsl(var(--accent-teal))] transition-colors" />
                     )}
-                    <div className="space-y-0.5">
+                    <div className="space-y-1">
                       <p className="text-xs font-semibold text-foreground">
                         {isUploading ? "Uploading & parsing..." : "Upload your resume"}
                       </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Supports PDF, DOCX, TXT (Max 5MB)
-                      </p>
+                      {/* File-type preview chips */}
+                      <div className="flex items-center justify-center gap-1.5 pt-0.5">
+                        {FILE_TYPE_CHIPS.map((chip) => (
+                          <span
+                            key={chip.label}
+                            className={cn(
+                              "inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold border",
+                              chip.color
+                            )}
+                          >
+                            {chip.label}
+                          </span>
+                        ))}
+                        <span className="text-[10px] text-muted-foreground/60 ml-0.5">Max 5MB</span>
+                      </div>
                     </div>
                   </div>
+                  {/* Upload progress bar */}
+                  {isUploading && (
+                    <div className="w-full rounded-full bg-muted/30 overflow-hidden">
+                      <div className="upload-progress-bar" />
+                    </div>
+                  )}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -231,7 +296,7 @@ export function SessionSetup({
                   )}
                 </div>
               ) : (
-                <div className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 text-xs">
                   <div className="flex items-center gap-2 min-w-0">
                     <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
                     <span className="truncate font-medium text-foreground">{resumeFileName}</span>
@@ -251,40 +316,47 @@ export function SessionSetup({
               )}
             </div>
 
+            {/* Configure Setup button */}
             <Button
               type="button"
-              className="mt-2 w-full gap-2 font-medium"
+              className="mt-2 w-full gap-2 font-semibold btn-shimmer"
               disabled={role.trim().length === 0 || isUploading}
               onClick={() => setIsPopupOpen(true)}
             >
-              <Sliders className="h-4 w-4" />
+              <Settings2 className="h-4 w-4" />
               Configure Setup
             </Button>
           </div>
         </Card>
       ) : (
-        <Card className="mx-auto mt-10 w-full max-w-md p-6">
+        <Card glass className="mx-auto mt-10 w-full max-w-md p-8">
           <div className="mb-6 text-center">
-            <Mic className="mx-auto mb-2 h-7 w-7 text-primary" />
-            <h2 className="text-lg font-semibold">Review your setup</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <StylisedMicIcon className="mx-auto mb-3" />
+            <h2 className="text-lg font-bold tracking-tight">Review your setup</h2>
+            <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
               Confirm your selections before starting the interview.
             </p>
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
-              <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                <span className="text-xs font-medium text-muted-foreground">Role</span>
+            <div className="rounded-xl border border-border bg-muted/10 p-5 space-y-3.5">
+              <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Briefcase className="h-3.5 w-3.5 text-[hsl(var(--accent-teal))]" />
+                  Role
+                </span>
                 <span className="text-sm font-semibold capitalize text-foreground">{role}</span>
               </div>
-              <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                <span className="text-xs font-medium text-muted-foreground">Level</span>
-                <span className="text-sm font-semibold capitalize text-primary bg-primary/10 px-2.5 py-0.5 rounded text-xs">
+              <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Award className="h-3.5 w-3.5 text-[hsl(var(--accent-teal))]" />
+                  Level
+                </span>
+                <span className="text-xs font-semibold capitalize seniority-glow px-2.5 py-0.5 rounded-md">
                   {seniority}
                 </span>
               </div>
-              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+              <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
                 <span className="text-xs font-medium text-muted-foreground">Max Questions</span>
                 <span className="text-sm font-semibold text-foreground">{questionCount}</span>
               </div>
@@ -316,7 +388,7 @@ export function SessionSetup({
                 Edit Setup
               </Button>
               <Button
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 btn-shimmer"
                 disabled={starting}
                 onClick={() =>
                   onStart({
@@ -513,7 +585,7 @@ function VerificationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+      <div className="glass-card relative w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl animate-in zoom-in-95 duration-200">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none"
@@ -521,19 +593,19 @@ function VerificationModal({
           <X className="h-4 w-4" />
         </button>
 
-        <h3 className="text-lg font-semibold text-foreground mb-4">Device & Connection Setup</h3>
+        <h3 className="text-lg font-bold text-foreground mb-4 tracking-tight">Device & Connection Setup</h3>
 
         <div className="space-y-6">
           {/* Microphone Section */}
-          <div className="space-y-2.5 rounded-lg border border-border bg-muted/15 p-4">
+          <div className="space-y-2.5 rounded-xl border border-border bg-muted/10 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">Microphone Test</span>
+              <span className="text-sm font-semibold text-foreground">Microphone Test</span>
               {stream ? (
                 <button
                   type="button"
                   onClick={toggleMute}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors border",
+                    "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors border",
                     isMuted
                       ? "bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20"
                       : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
@@ -569,9 +641,9 @@ function VerificationModal({
           </div>
 
           {/* Network Strength Section */}
-          <div className="space-y-2.5 rounded-lg border border-border bg-muted/15 p-4">
+          <div className="space-y-2.5 rounded-xl border border-border bg-muted/10 p-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">Network Strength</span>
+              <span className="text-sm font-semibold text-foreground">Network Strength</span>
               <div className="flex items-center gap-2">
                 {networkLatency !== null && (
                   <span className="text-xs font-mono text-muted-foreground">{networkLatency}ms</span>
@@ -595,11 +667,11 @@ function VerificationModal({
             </div>
             <div className="flex items-center gap-2">
               {networkStatus === "checking" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-[hsl(var(--accent-teal))]" />
               ) : networkStatus === "offline" ? (
                 <WifiOff className="h-3.5 w-3.5 text-rose-500" />
               ) : (
-                <Wifi className="h-3.5 w-3.5 text-primary" />
+                <Wifi className="h-3.5 w-3.5 text-[hsl(var(--accent-teal))]" />
               )}
               <span
                 className={cn(
@@ -680,9 +752,10 @@ function MicVisualizer({ stream, isMuted }: { stream: MediaStream | null; isMute
         for (let i = 0; i < bufferLength; i++) {
           barHeight = (dataArray[i] / 255) * height * 0.95;
 
+          // Use teal gradient instead of blue
           const grad = ctx.createLinearGradient(0, height, 0, height - barHeight);
-          grad.addColorStop(0, "rgba(59, 130, 246, 0.15)");
-          grad.addColorStop(1, "rgb(59, 130, 246)");
+          grad.addColorStop(0, "rgba(20, 184, 166, 0.15)");
+          grad.addColorStop(1, "rgb(20, 184, 166)");
 
           ctx.fillStyle = grad;
           ctx.fillRect(x, height - barHeight, barWidth - 3, barHeight);
@@ -709,9 +782,7 @@ function MicVisualizer({ stream, isMuted }: { stream: MediaStream | null; isMute
       ref={canvasRef}
       width={400}
       height={60}
-      className="h-16 w-full rounded-md border border-border bg-muted/20"
+      className="h-16 w-full rounded-lg border border-border bg-muted/10"
     />
   );
 }
-
-

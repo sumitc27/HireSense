@@ -49,25 +49,42 @@ export interface SessionDetail extends SessionSummary {
   }[];
 }
 
-export async function listSessions(): Promise<SessionSummary[]> {
-  return jsonOrThrow(await fetch(`${BASE}/sessions`));
+export async function listSessions(token?: string): Promise<SessionSummary[]> {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return jsonOrThrow(await fetch(`${BASE}/sessions`, { headers }));
 }
 
-export async function getSession(id: string): Promise<SessionDetail> {
-  return jsonOrThrow(await fetch(`${BASE}/sessions/${id}`));
+export async function getSession(id: string, token?: string): Promise<SessionDetail> {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return jsonOrThrow(await fetch(`${BASE}/sessions/${id}`, { headers }));
 }
 
-export async function deleteSession(id: string): Promise<{ ok: boolean }> {
-  return jsonOrThrow(await fetch(`${BASE}/sessions/${id}`, { method: "DELETE" }));
+export async function deleteSession(id: string, token?: string): Promise<{ ok: boolean }> {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return jsonOrThrow(await fetch(`${BASE}/sessions/${id}`, { method: "DELETE", headers }));
 }
 
-export async function uploadResume(file: File): Promise<{ text: string }> {
+export async function uploadResume(file: File, token?: string): Promise<{ text: string }> {
   const formData = new FormData();
   formData.append("file", file);
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
   return jsonOrThrow(
     await fetch(`${BASE}/upload_resume`, {
       method: "POST",
       body: formData,
+      headers,
     })
   );
 }

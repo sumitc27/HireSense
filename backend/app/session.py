@@ -46,8 +46,9 @@ _NON_ENGLISH_MESSAGE = "I can only coach in English right now — try answering 
 
 
 class SessionController:
-    def __init__(self, ws: WebSocket) -> None:
+    def __init__(self, ws: WebSocket, user_id: str = "anonymous-developer") -> None:
         self.ws = ws
+        self.user_id = user_id
         self.settings = get_settings()
         self.speak_task: asyncio.Task | None = None
         self.silence_task: asyncio.Task | None = None
@@ -232,7 +233,7 @@ class SessionController:
         self.resume_text = resume_text.strip() if resume_text else ""
         count = max(1, min(question_count, self.settings.max_question_count))
         self.turn_machine = TurnMachine(question_count=count)
-        await asyncio.to_thread(sessions_store.create_session, self.session_id, self.role, self.seniority, count)
+        await asyncio.to_thread(sessions_store.create_session, self.session_id, self.role, self.seniority, count, self.user_id)
 
         await self.send_event("session_started", session_id=self.session_id)
         self.turn_machine.to(TurnState.GENERATING_QUESTIONS)

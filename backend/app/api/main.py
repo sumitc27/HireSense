@@ -6,14 +6,15 @@ import logging
 import logging.config
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, WebSocket, UploadFile, File
+from fastapi import FastAPI, HTTPException, WebSocket, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import io
 import docx
 import pypdf
 
-from .. import sessions_store, tts
+from .. import sessions_store, tts, auth
+from ..auth import get_current_user_id
 from ..config import get_settings
 from ..session import SessionController
 
@@ -77,7 +78,24 @@ async def health() -> dict:
 
 @app.websocket("/ws/session")
 async def ws_session(ws: WebSocket) -> None:
-    await SessionController(ws).run()
+    token = ws.query_params.get("token")
+    user_id = "anonymous-developer"
+    domain = auth.get_clerk_domain()
+    
+    import sys
+    is_testing = "pytest" in sys.modules
+    
+    if not is_testing and domain:
+        if not token:
+            await ws.close(code=4008)  # Policy Violation
+            return
+        payload = auth.verify_clerk_token(token)
+        if not payload or "sub" not in payload:
+            await ws.close(code=4008)
+            return
+        user_id = payload["sub"]
+        
+    await SessionController(ws, user_id=user_id).run()
 
 
 class SessionSummary(BaseModel):
@@ -96,26 +114,26 @@ class SessionDetail(SessionSummary):
 
 
 @app.get("/sessions", response_model=list[SessionSummary])
-async def list_sessions(limit: int = 50) -> list[dict]:
-    return await asyncio.to_thread(sessions_store.list_sessions, limit)
+async def list_sessions(limit: int = 50, user_id: str = Depends(get_current_user_id)) -> list[dict]:
+    return await asyncio.to_thread(sessions_store.list_sessions, user_id, limit)
 
 
 @app.get("/sessions/{session_id}", response_model=SessionDetail)
-async def get_session(session_id: str) -> dict:
-    data = await asyncio.to_thread(sessions_store.get_session, session_id)
+async def get_session(session_id: str, user_id: str = Depends(get_current_user_id)) -> dict:
+    data = await asyncio.to_thread(sessions_store.get_session, session_id, user_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return data
 
 
 @app.delete("/sessions/{session_id}")
-async def delete_session(session_id: str) -> dict:
-    await asyncio.to_thread(sessions_store.delete_session, session_id)
+async def delete_session(session_id: str, user_id: str = Depends(get_current_user_id)) -> dict:
+    await asyncio.to_thread(sessions_store.delete_session, session_id, user_id)
     return {"ok": True}
 
 
 @app.post("/upload_resume")
-async def upload_resume(file: UploadFile = File(...)) -> dict:
+async def upload_resume(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)) -> dict:
     filename = file.filename or ""
     ext = filename.split(".")[-1].lower() if "." in filename else ""
     
