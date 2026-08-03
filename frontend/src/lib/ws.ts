@@ -110,8 +110,14 @@ export class VoiceSocket {
     this.ws?.send(blob);
   }
 
-  startSession(role: string, seniority: string, questionCount: number): void {
-    this.send({ type: "start_session", role, seniority, question_count: questionCount });
+  startSession(role: string, seniority: string, questionCount: number, resumeText?: string): void {
+    this.send({
+      type: "start_session",
+      role,
+      seniority,
+      question_count: questionCount,
+      resume_text: resumeText || "",
+    });
   }
 
   sendTypedAnswer(text: string): void {

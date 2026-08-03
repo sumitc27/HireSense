@@ -13,10 +13,14 @@ import {
   Loader2,
   Check,
   X,
+  Upload,
+  Trash2,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { uploadResume } from "@/lib/api";
 
 const SENIORITIES = ["junior", "mid-level", "senior", "staff"] as const;
 const ROLE_PRESETS = [
@@ -31,13 +35,15 @@ export interface SessionSetupValues {
   role: string;
   seniority: string;
   questionCount: number;
+  resumeText?: string;
+  resumeFileName?: string;
 }
 
 /** pre-interview configuration wizard:
- * 1. Step 1: Configuration Form (role, seniority, questionCount).
+ * 1. Step 1: Configuration Form (role, seniority, questionCount, optional resume upload).
  * 2. Configure Setup button opens the VerificationModal popup screen.
  * 3. Step 2 (Popup Modal): Verification of microphone (canvas visualizer + mute/unmute status toggle) and network latency strength check.
- * 4. Step 3: Selection Review Screen (displays selected options, edit button, and start button).
+ * 4. Step 3: Selection Review Screen (displays selected options + resume name, edit button, and start button).
  */
 export function SessionSetup({
   onStart,
@@ -51,6 +57,55 @@ export function SessionSetup({
   const [questionCount, setQuestionCount] = useState(3);
   const [step, setStep] = useState<"form" | "review">("form");
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+
+  // Resume state
+  const [resumeText, setResumeText] = useState("");
+  const [resumeFileName, setResumeFileName] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("File is too large. Max size is 5MB.");
+      return;
+    }
+
+    // Validate extension
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (ext !== "pdf" && ext !== "docx" && ext !== "txt") {
+      setUploadError("Unsupported format. Please upload PDF, DOCX, or TXT.");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError("");
+
+    try {
+      const res = await uploadResume(file);
+      setResumeText(res.text);
+      setResumeFileName(file.name);
+    } catch (err: any) {
+      console.error(err);
+      setUploadError(err.message || "Failed to parse resume. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeResume = () => {
+    setResumeText("");
+    setResumeFileName("");
+    setUploadError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <>
@@ -135,10 +190,71 @@ export function SessionSetup({
               </div>
             </div>
 
+            {/* Resume Upload Section */}
+            <div className="rounded-lg border border-dashed border-border/80 bg-muted/5 p-4 space-y-2">
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Resume (Optional)
+              </label>
+
+              {!resumeFileName ? (
+                <div className="space-y-2">
+                  <div
+                    onClick={() => !isUploading && fileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center py-4 px-3 rounded-lg border border-dashed border-border hover:border-primary/50 bg-background cursor-pointer hover:bg-muted/10 transition-all text-center gap-2 group"
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                    ) : (
+                      <Upload className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                    )}
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-foreground">
+                        {isUploading ? "Uploading & parsing..." : "Upload your resume"}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Supports PDF, DOCX, TXT (Max 5MB)
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.txt"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={isUploading}
+                  />
+                  {uploadError && (
+                    <p className="text-[11px] text-rose-500 font-medium flex items-center gap-1 justify-center">
+                      <AlertTriangle className="h-3.5 w-3.5" /> {uploadError}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span className="truncate font-medium text-foreground">{resumeFileName}</span>
+                    <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded shrink-0">
+                      Parsed
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeResume}
+                    className="text-muted-foreground hover:text-rose-500 transition-colors p-1"
+                    title="Remove resume"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
             <Button
               type="button"
               className="mt-2 w-full gap-2 font-medium"
-              disabled={role.trim().length === 0}
+              disabled={role.trim().length === 0 || isUploading}
               onClick={() => setIsPopupOpen(true)}
             >
               <Sliders className="h-4 w-4" />
@@ -168,9 +284,24 @@ export function SessionSetup({
                   {seniority}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
                 <span className="text-xs font-medium text-muted-foreground">Max Questions</span>
                 <span className="text-sm font-semibold text-foreground">{questionCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Resume</span>
+                {resumeFileName ? (
+                  <span
+                    className="text-xs font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded truncate max-w-[200px]"
+                    title={resumeFileName}
+                  >
+                    {resumeFileName}
+                  </span>
+                ) : (
+                  <span className="text-xs font-semibold text-muted-foreground italic">
+                    None uploaded
+                  </span>
+                )}
               </div>
             </div>
 
@@ -187,7 +318,15 @@ export function SessionSetup({
               <Button
                 className="flex-1 gap-2"
                 disabled={starting}
-                onClick={() => onStart({ role: role.trim(), seniority, questionCount })}
+                onClick={() =>
+                  onStart({
+                    role: role.trim(),
+                    seniority,
+                    questionCount,
+                    resumeText,
+                    resumeFileName,
+                  })
+                }
               >
                 {starting ? (
                   <>
@@ -574,4 +713,5 @@ function MicVisualizer({ stream, isMuted }: { stream: MediaStream | null; isMute
     />
   );
 }
+
 

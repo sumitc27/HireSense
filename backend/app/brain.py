@@ -81,9 +81,9 @@ def _structured_call(
     raise ValueError(f"{trace_name}: model did not return valid JSON after retry")
 
 
-def generate_questions(role: str, seniority: str, count: int, *, settings: Settings) -> list[str]:
+def generate_questions(role: str, seniority: str, count: int, resume_text: str = "", *, settings: Settings) -> list[str]:
     bank = _structured_call(
-        questions_messages(role, seniority, count), QuestionBank,
+        questions_messages(role, seniority, count, resume_text=resume_text), QuestionBank,
         settings=settings, trace_name="hiresense-questions",
     )
     assert isinstance(bank, QuestionBank)
@@ -94,9 +94,9 @@ def generate_questions(role: str, seniority: str, count: int, *, settings: Setti
     return questions
 
 
-def score_answer(role: str, seniority: str, question: str, answer: str, *, settings: Settings) -> RubricScore:
+def score_answer(role: str, seniority: str, question: str, answer: str, resume_text: str = "", *, settings: Settings) -> RubricScore:
     result = _structured_call(
-        scoring_messages(role, seniority, question, answer), RubricScore,
+        scoring_messages(role, seniority, question, answer, resume_text=resume_text), RubricScore,
         settings=settings, trace_name="hiresense-scoring",
     )
     assert isinstance(result, RubricScore)

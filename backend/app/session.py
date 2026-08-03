@@ -57,6 +57,7 @@ class SessionController:
         self.session_id = uuid.uuid4().hex[:12]
         self.role = ""
         self.seniority = ""
+        self.resume_text = ""
         self.questions: list[str] = []
         self.turns: list[TurnRecord] = []
         self.turn_machine: TurnMachine | None = None
@@ -220,7 +221,7 @@ class SessionController:
                                   message=_SILENCE_MESSAGE, recoverable=True)
 
     # ---- session lifecycle -------------------------------------------------
-    async def start_session(self, role: str, seniority: str, question_count: int) -> None:
+    async def start_session(self, role: str, seniority: str, question_count: int, resume_text: str = "") -> None:
         if self.turn_machine is not None:
             await self.send_event("error", code="session_already_started",
                                   message="This session already started.", recoverable=True)
@@ -228,6 +229,7 @@ class SessionController:
 
         self.role = role.strip()[:80] or "software engineer"
         self.seniority = seniority.strip()[:40] or "mid-level"
+        self.resume_text = resume_text.strip() if resume_text else ""
         count = max(1, min(question_count, self.settings.max_question_count))
         self.turn_machine = TurnMachine(question_count=count)
         await asyncio.to_thread(sessions_store.create_session, self.session_id, self.role, self.seniority, count)
@@ -236,9 +238,14 @@ class SessionController:
         self.turn_machine.to(TurnState.GENERATING_QUESTIONS)
         await self.send_event("state", state=TurnState.GENERATING_QUESTIONS.value, turn_id="")
 
+        kwargs = {"settings": self.settings}
+        if self.resume_text:
+            kwargs["resume_text"] = self.resume_text
+
         try:
             self.questions = await asyncio.to_thread(
-                brain.generate_questions, self.role, self.seniority, count, settings=self.settings,
+                brain.generate_questions, self.role, self.seniority, count,
+                **kwargs
             )
         except Exception as e:
             logger.exception("[session] question generation failed")
@@ -312,10 +319,14 @@ class SessionController:
 
         tm.to(TurnState.SCORING)
         await self.send_event("state", state=TurnState.SCORING.value, turn_id=turn_id)
+        kwargs = {"settings": self.settings}
+        if self.resume_text:
+            kwargs["resume_text"] = self.resume_text
+
         try:
             rubric = await asyncio.to_thread(
                 brain.score_answer, self.role, self.seniority, question_text, answer_text,
-                settings=self.settings,
+                **kwargs
             )
         except Exception:
             logger.exception("[session] scoring failed — using neutral placeholder")
@@ -449,6 +460,7 @@ class SessionController:
                     self._start_turn(self.start_session(
                         frame.get("role", ""), frame.get("seniority", ""),
                         int(frame.get("question_count", self.settings.default_question_count)),
+                        frame.get("resume_text", ""),
                     ))
                 elif ftype == "utterance":
                     audio = await self.ws.receive_bytes()

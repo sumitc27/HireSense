@@ -60,3 +60,14 @@ export async function getSession(id: string): Promise<SessionDetail> {
 export async function deleteSession(id: string): Promise<{ ok: boolean }> {
   return jsonOrThrow(await fetch(`${BASE}/sessions/${id}`, { method: "DELETE" }));
 }
+
+export async function uploadResume(file: File): Promise<{ text: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return jsonOrThrow(
+    await fetch(`${BASE}/upload_resume`, {
+      method: "POST",
+      body: formData,
+    })
+  );
+}

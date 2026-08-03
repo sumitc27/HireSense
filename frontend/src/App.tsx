@@ -166,7 +166,7 @@ export default function App() {
     try {
       await socket.connect();
       socketRef.current = socket;
-      socket.startSession(values.role, values.seniority, values.questionCount);
+      socket.startSession(values.role, values.seniority, values.questionCount, values.resumeText);
       setPhase("live");
     } catch {
       setPhase("setup");

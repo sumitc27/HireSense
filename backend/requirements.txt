@@ -1,0 +1,26 @@
+# HireSense backend RUNTIME deps. Pins are the verified floor (2026-07-04); newer is fine.
+fastapi>=0.138.0
+uvicorn[standard]>=0.49.0
+pydantic>=2.13.4
+pydantic-settings>=2.7.0
+websockets>=15.0
+
+# Shared LLM router (vendored shared/llm.py)
+litellm>=1.89.3
+google-genai>=2.9.0
+groq>=1.5.0                      # chat fallback chain + Whisper STT
+
+# Observability
+langfuse>=4.9.1
+
+# Text-to-speech (Kokoro-82M, local CPU — model files via scripts/download_models.py)
+kokoro-onnx>=0.5.0
+soundfile>=0.12.1
+numpy>=1.26.0
+
+python-dotenv>=1.0.1
+
+# Resume parsing dependencies
+pypdf>=6.14.2
+python-docx>=1.2.0
+python-multipart>=0.0.32

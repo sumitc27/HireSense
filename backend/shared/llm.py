@@ -9,9 +9,6 @@ Design goals (this file is itself a portfolio detail):
   * Langfuse tracing wired into LiteLLM callbacks (auto, optional).
   * Providers swappable in ONE place via env vars.
 
-All model IDs are free / free-tier (verified 2026-06-22). Re-verify in the
-Groq console / Google AI Studio if running much later — Groq deprecates
-models and Gemini renames Flash tiers frequently.
 
 Usage
 -----

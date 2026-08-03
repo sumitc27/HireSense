@@ -6,9 +6,12 @@ import logging
 import logging.config
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, WebSocket, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import io
+import docx
+import pypdf
 
 from .. import sessions_store, tts
 from ..config import get_settings
@@ -109,6 +112,52 @@ async def get_session(session_id: str) -> dict:
 async def delete_session(session_id: str) -> dict:
     await asyncio.to_thread(sessions_store.delete_session, session_id)
     return {"ok": True}
+
+
+@app.post("/upload_resume")
+async def upload_resume(file: UploadFile = File(...)) -> dict:
+    filename = file.filename or ""
+    ext = filename.split(".")[-1].lower() if "." in filename else ""
+    
+    try:
+        content = await file.read()
+        text = ""
+        
+        if ext == "pdf":
+            reader = pypdf.PdfReader(io.BytesIO(content))
+            pages_text = []
+            for page in reader.pages:
+                t = page.extract_text()
+                if t:
+                    pages_text.append(t)
+            text = "\n".join(pages_text)
+            
+        elif ext == "docx":
+            doc = docx.Document(io.BytesIO(content))
+            paragraphs = [p.text for p in doc.paragraphs]
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        paragraphs.append(cell.text)
+            text = "\n".join(paragraphs)
+            
+        else:
+            # Fallback to plain text decoding
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                text = content.decode("latin-1", errors="ignore")
+                
+        # Limit text length defensively to avoid overwhelming LLM context
+        text = text.strip()
+        if len(text) > 50000:
+            text = text[:50000] + "\n... [resume truncated]"
+            
+        return {"text": text}
+        
+    except Exception as e:
+        logger.exception("Failed to parse uploaded resume: %s", filename)
+        raise HTTPException(status_code=400, detail=f"Failed to parse resume: {str(e)}")
 
 
 @app.get("/")

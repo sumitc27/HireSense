@@ -17,8 +17,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # SDKs (Groq client, litellm) read GROQ_API_KEY/GEMINI_API_KEY straight
 # from os.environ, so load the same .env files into the real process
 # environment too. Project-root .env wins; backend/.env fills any gaps.
-load_dotenv(_PROJECT_ROOT / ".env")
-load_dotenv(_BACKEND_ROOT / ".env")
+load_dotenv(_PROJECT_ROOT / ".env", override=True)
+load_dotenv(_BACKEND_ROOT / ".env", override=True)
 
 
 class Settings(BaseSettings):
