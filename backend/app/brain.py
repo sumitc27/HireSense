@@ -104,10 +104,10 @@ def score_answer(role: str, seniority: str, question: str, answer: str, resume_t
 
 
 def coach_stream(
-    role: str, seniority: str, question: str, rubric: RubricScore, *, settings: Settings,
+    role: str, seniority: str, question: str, rubric: RubricScore, *, is_last_turn: bool = False, settings: Settings,
 ) -> Iterator[str]:
     return chat_stream(
-        coaching_messages(role, seniority, question, rubric),
+        coaching_messages(role, seniority, question, rubric, is_last_turn=is_last_turn),
         model=settings.primary_model, fallback_model=settings.fallback_model,
         temperature=0.6, max_tokens=700,
         metadata={"trace_name": "hiresense-coaching"},

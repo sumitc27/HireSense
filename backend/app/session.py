@@ -340,7 +340,25 @@ class SessionController:
 
         tm.to(TurnState.COACHING)
         await self.send_event("state", state=TurnState.COACHING.value, turn_id=turn_id)
-        tokens = brain.coach_stream(self.role, self.seniority, question_text, rubric, settings=self.settings)
+
+        # Check if this is the last turn (no follow-up is needed or allowed, and we are on the last question)
+        has_follow_up = (
+            rubric.follow_up_needed
+            and not tm.in_follow_up
+            and not tm.follow_ups_used.get(tm.question_index)
+        )
+        is_last_turn = (not has_follow_up) and (tm.question_index + 1 >= tm.question_count)
+
+        try:
+            tokens = brain.coach_stream(
+                self.role, self.seniority, question_text, rubric,
+                is_last_turn=is_last_turn, settings=self.settings
+            )
+        except TypeError:
+            tokens = brain.coach_stream(
+                self.role, self.seniority, question_text, rubric,
+                settings=self.settings
+            )
         await self.barge_in()
         self.start_speaking(self.speak_stream(turn_id, tokens))
         try:

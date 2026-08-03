@@ -91,7 +91,7 @@ Improvements: {improvements}
 Give spoken coaching in 3-5 short natural sentences, as if talking, not writing:
 1. Open with ONE encouraging or honest reaction to the answer.
 2. Name the single biggest improvement (not a list) with a concrete tip.
-3. End by moving on naturally.
+3. End by {concluding_instruction}.
 
 No markdown, no bullet points, no headers — this is spoken aloud."""
 
@@ -122,7 +122,12 @@ def scoring_messages(role: str, seniority: str, question: str, answer: str, resu
     ]
 
 
-def coaching_messages(role: str, seniority: str, question: str, rubric: RubricScore) -> list[dict]:
+def coaching_messages(role: str, seniority: str, question: str, rubric: RubricScore, is_last_turn: bool = False) -> list[dict]:
+    if is_last_turn:
+        concluding_instruction = "concluding the interview and stating that a detailed report of their interview interactions has been generated, and they should review it to improvise and prepare better"
+    else:
+        concluding_instruction = "moving on naturally (e.g. saying let's move on to the next question)"
+
     return [
         {"role": "system", "content": COACHING_SYSTEM.format(
             question=question,
@@ -130,6 +135,7 @@ def coaching_messages(role: str, seniority: str, question: str, rubric: RubricSc
             correctness=rubric.correctness, conciseness=rubric.conciseness,
             strengths="; ".join(rubric.strengths) or "none noted",
             improvements="; ".join(rubric.improvements) or "none noted",
+            concluding_instruction=concluding_instruction,
         )},
         {"role": "user", "content": "Coach me now."},
     ]
