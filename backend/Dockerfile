@@ -24,6 +24,6 @@ COPY scripts ./scripts
 
 RUN python scripts/download_models.py
 
-EXPOSE 7860
-CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "7860"]
+EXPOSE 8002
+CMD ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8002"]
 
