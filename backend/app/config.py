@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+# Trigger uvicorn auto-reload for Clerk config changes
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -36,15 +37,22 @@ class Settings(BaseSettings):
     # --- Speech-to-text (Groq, free tier ~2K req/day) ---
     stt_model: str = "whisper-large-v3-turbo"
 
-    # --- Text-to-speech (Kokoro-82M, local CPU, free) ---
+    # --- Text-to-speech (Kokoro-82M, ElevenLabs, or Cartesia) ---
+    tts_provider: str = "kokoro"  # "kokoro", "elevenlabs", or "cartesia"
+
+    cartesia_api_key: str = ""
+    cartesia_voice_id: str = "db6b0ed5-d5d3-463d-ae85-518a07d3c2b4"  # George/professional voice
+    cartesia_model_id: str = "sonic-3.5"  # Low latency model (e.g. sonic-3.5 or sonic-latest)
+
     kokoro_model_path: str = "models/kokoro-v1.0.onnx"
     kokoro_voices_path: str = "models/voices-v1.0.bin"
     kokoro_voice: str = "af_heart"
     kokoro_speed: float = 1.0
 
     # --- Session behavior ---
-    default_question_count: int = 4     # 3-5 main questions per session
+    default_question_count: int = 2     # 3-5 main questions per session
     max_question_count: int = 6
+    daily_session_limit: int = 5
     silence_timeout_seconds: int = 30   # open-mic: re-prompt after this long listening
     max_utterance_seconds: int = 90
 

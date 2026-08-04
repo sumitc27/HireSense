@@ -57,7 +57,7 @@ export interface VoiceSocketHandlers {
   onEvent: (event: ServerEvent) => void;
   /** Binary frame following the most recent tts_chunk announcement. */
   onAudio: (wav: ArrayBuffer, meta: Extract<ServerEvent, { type: "tts_chunk" }>) => void;
-  onClose?: () => void;
+  onClose?: (code: number, reason: string) => void;
   onError?: (err: Event) => void;
 }
 
@@ -81,7 +81,7 @@ export class VoiceSocket {
         this.handlers.onError?.(e);
         reject(e);
       };
-      ws.onclose = () => this.handlers.onClose?.();
+      ws.onclose = (event) => this.handlers.onClose?.(event.code, event.reason);
       ws.onmessage = (msg) => {
         if (msg.data instanceof ArrayBuffer) {
           if (this.pendingChunkMeta) {

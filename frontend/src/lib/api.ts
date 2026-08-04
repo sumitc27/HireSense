@@ -88,3 +88,17 @@ export async function uploadResume(file: File, token?: string): Promise<{ text: 
     })
   );
 }
+
+export interface LimitCheck {
+  count: number;
+  limit: number;
+  exceeded: boolean;
+}
+
+export async function checkDailyLimit(token?: string): Promise<LimitCheck> {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return jsonOrThrow(await fetch(`${BASE}/sessions/today_count`, { headers }));
+}

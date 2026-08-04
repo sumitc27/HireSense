@@ -21,6 +21,16 @@ import { TurnTimeline, type TimelineTurn } from "./components/TurnTimeline";
 import { TypedAnswerInput } from "./components/TypedAnswerInput";
 import { Waveform } from "./components/Waveform";
 import { Show, SignInButton, SignUpButton, useAuth } from "@clerk/react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { checkDailyLimit } from "@/lib/api";
 
 type Phase = "setup" | "connecting" | "live" | "done";
 
@@ -33,6 +43,7 @@ const MIC_ENABLED_STATES = new Set(["listening", "asking", "coaching"]);
 export default function App() {
   const { getToken } = useAuth();
   useApplyTheme();
+  const [showLimitDialog, setShowLimitDialog] = useState(false);
   const micMode = useStore((s) => s.micMode);
   const setMicMode = useStore((s) => s.setMicMode);
 
@@ -52,6 +63,7 @@ export default function App() {
   const captureRef = useRef<AudioCapture | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
   const socketRef = useRef<VoiceSocket | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
   const liveCaptionsRef = useRef<LiveCaptions>(new LiveCaptions());
   const coachEntryRef = useRef<string | null>(null);
   const openMicCalibratedRef = useRef(false); // calibrate ambient noise once per session, not per turn
@@ -135,6 +147,20 @@ export default function App() {
 
   async function start(values: SessionSetupValues) {
     setPhase("connecting");
+    const token = await getToken();
+
+    // Check daily limit before allocating devices or connecting WebSocket
+    try {
+      const limitInfo = await checkDailyLimit(token ?? undefined);
+      if (limitInfo.exceeded) {
+        setShowLimitDialog(true);
+        setPhase("setup");
+        return;
+      }
+    } catch (err) {
+      console.error("Failed to check daily session limit", err);
+    }
+
     // AudioContext + mic must be requested inside this click (autoplay policy).
     const player = new AudioPlayer();
     player.init();
@@ -156,9 +182,15 @@ export default function App() {
     const socket = new VoiceSocket({
       onEvent,
       onAudio: (wav, meta) => void player.enqueue(wav, meta.turn_id),
-      onClose: () => {
+      onClose: (code) => {
         captureRef.current?.stopOpenMic();
-        toast.info("Session ended.");
+        if (code === 4003) {
+          toast.error("Daily interview limit reached (max 2 interviews per 24h). Please try again tomorrow!");
+        } else if (code === 4008) {
+          toast.error("Session closed: Authentication required.");
+        } else {
+          toast.info("Session ended.");
+        }
       },
       onError: () => toast.error("Connection failed — is the backend running on :8002?"),
     });
@@ -201,33 +233,37 @@ export default function App() {
     rubricsRef.current.clear();
   }
 
-  const pressStart = useCallback(() => {
+  const toggleRecording = useCallback(async () => {
     const capture = captureRef.current;
-    if (!capture?.ready || capture.recording) return;
-    // Talking over the coach = barge-in.
-    if (playerRef.current?.speaking) {
-      playerRef.current.flush();
-      socketRef.current?.send({ type: "barge_in" });
-      setSpeaking(false);
-    }
-    capture.startRecording();
-    liveCaptionsRef.current.start(upsertLive); // instant on-screen preview while you talk
-    setRecording(true);
-  }, []);
+    if (!capture?.ready) return;
 
-  const pressEnd = useCallback(async () => {
-    const capture = captureRef.current;
-    if (!capture?.recording) return;
-    liveCaptionsRef.current.stop();
-    setRecording(false);
-    const utterance = await capture.stopRecording();
-    if (!utterance) {
-      removeCaption(LIVE_ID);
-      toast.info("Too short — hold the mic while you speak.");
-      return;
+    if (!capture.recording) {
+      // Talking over the coach = barge-in.
+      if (playerRef.current?.speaking) {
+        playerRef.current.flush();
+        socketRef.current?.send({ type: "barge_in" });
+        setSpeaking(false);
+      }
+      capture.startRecording();
+      recordingStartTimeRef.current = performance.now();
+      liveCaptionsRef.current.start(upsertLive); // instant on-screen preview while you talk
+      setRecording(true);
+    } else {
+      if (performance.now() - recordingStartTimeRef.current < 4000) {
+        toast.info("Please speak for at least 4 seconds before stopping.");
+        return;
+      }
+      liveCaptionsRef.current.stop();
+      setRecording(false);
+      const utterance = await capture.stopRecording();
+      if (!utterance) {
+        removeCaption(LIVE_ID);
+        toast.info("Recording was too short or empty.");
+        return;
+      }
+      const buf = await utterance.blob.arrayBuffer();
+      socketRef.current?.sendUtterance(buf, utterance.durationMs, capture.mimeType);
     }
-    const buf = await utterance.blob.arrayBuffer();
-    socketRef.current?.sendUtterance(buf, utterance.durationMs, capture.mimeType);
   }, []);
 
   // Open-mic mode: auto-arm the VAD whenever we enter LISTENING, disarm otherwise.
@@ -271,7 +307,48 @@ export default function App() {
       capture.stopOpenMic();
       liveCaptionsRef.current.stop();
     };
-  }, [micMode, phase, turnState]);
+  }, [micMode, phase, turnState, upsertLive, removeCaption]);
+
+  // Monitor for system-level mic mute during the live interview
+  useEffect(() => {
+    if (phase !== "live" || !micOk) return;
+
+    let active = true;
+    let silentSamples = 0;
+    const SILENT_THRESHOLD = 0.005; // RMS below this = silence
+    const REQUIRED_SILENT_CHECKS = 10; // 10 checks × 500ms = 5s of silence
+    let lastToastTime = 0;
+
+    const interval = window.setInterval(() => {
+      if (!active) return;
+      const capture = captureRef.current;
+      if (!capture || !capture.ready) return;
+
+      const rms = capture.level();
+      if (rms < SILENT_THRESHOLD) {
+        silentSamples++;
+        if (silentSamples >= REQUIRED_SILENT_CHECKS) {
+          const now = Date.now();
+          // Warn once every 15 seconds max to avoid spam
+          if (now - lastToastTime > 15000) {
+            toast.warning("System microphone appears muted. Please check your system settings or taskbar.", {
+              id: "system-mute-warning",
+              duration: 5000,
+            });
+            lastToastTime = now;
+          }
+          silentSamples = 0;
+        }
+      } else {
+        silentSamples = 0;
+      }
+    }, 500);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [phase, micOk]);
 
   const submitTyped = useCallback((text: string) => {
     socketRef.current?.sendTypedAnswer(text);
@@ -356,8 +433,7 @@ export default function App() {
                         <MicControl
                           enabled={micOk && MIC_ENABLED_STATES.has(turnState)}
                           recording={recording}
-                          onPressStart={pressStart}
-                          onPressEnd={pressEnd}
+                          onToggle={toggleRecording}
                         />
                       ) : (
                         <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border">
@@ -378,7 +454,7 @@ export default function App() {
                   )}
                   {speaking && (
                     <p className="text-xs text-muted-foreground">
-                      Coach is speaking — {micMode === "ptt" ? "hold the mic" : "start talking"} to interrupt.
+                      Coach is speaking — {micMode === "ptt" ? "press the mic" : "start talking"} to interrupt.
                     </p>
                   )}
                 </div>
@@ -409,6 +485,23 @@ export default function App() {
         </main>
       </div>
       <Toaster position="bottom-right" />
+      <AlertDialog open={showLimitDialog} onOpenChange={setShowLimitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Daily Limit Reached</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              Your daily limit of 2 interviews/day has been reached.
+              <br /><br />
+              Please visit again after 24 hours.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowLimitDialog(false)}>
+              Okay
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }

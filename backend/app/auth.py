@@ -24,7 +24,11 @@ def get_clerk_domain() -> str | None:
     
     # Try both Vite and standard environment keys
     key = os.getenv("VITE_CLERK_PUBLISHABLE_KEY") or os.getenv("CLERK_PUBLISHABLE_KEY")
+    is_prod = os.getenv("FASTAPI_ENV") == "production" or os.getenv("APP_ENV") == "production"
+    
     if not key or "placeholder" in key or key.strip() == "":
+        if is_prod:
+            raise ValueError("CLERK_PUBLISHABLE_KEY or VITE_CLERK_PUBLISHABLE_KEY must be set in production mode")
         return None
         
     try:

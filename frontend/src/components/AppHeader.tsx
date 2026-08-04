@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Mic } from "lucide-react";
 import { health } from "@/lib/api";
 import { SessionsMenu } from "./SessionsMenu";
 import { ThemeToggle } from "./ThemeToggle";
@@ -9,7 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { Show, SignInButton, UserButton } from "@clerk/react";
+import { Show, SignInButton, UserButton, useUser } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 
 function HealthDot() {
@@ -60,18 +59,24 @@ function HealthDot() {
 }
 
 export function AppHeader({ children }: { children?: React.ReactNode }) {
+  const { user } = useUser();
+  const firstName = user?.firstName || user?.username || "";
+
   return (
     <header className="flex items-center gap-3 border-b border-border/60 bg-card/25 backdrop-blur-lg px-4 py-2.5">
       <div className="flex items-center gap-2.5">
-        {/* Stylised teal gradient mic logo */}
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[hsl(var(--accent-teal))] to-[hsl(172,66%,30%)]">
-          <Mic className="h-3.5 w-3.5 text-white" />
-        </div>
+        {/* HireSense logo */}
+        <img src="/HireSense.png" alt="HireSense" className="h-7 w-7 rounded-lg object-contain" />
         <h1 className="text-base font-bold tracking-tight">HireSense</h1>
       </div>
       <span className="hidden text-xs text-muted-foreground md:inline">
-        real-time voice interview coach · local TTS · streamed sentence-by-sentence
+        Real-Time Voice AI Interview Coach
       </span>
+      {firstName && (
+        <span className="hidden md:inline text-sm font-medium text-foreground ml-auto">
+          Hey, {firstName} 👋
+        </span>
+      )}
       <div className="ml-auto flex items-center gap-2">
         <HealthDot />
         {children}

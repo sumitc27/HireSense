@@ -69,6 +69,7 @@ export class AudioPlayer {
 
   newTurn(): void {
     this.nextStartTime = 0;
+    this.firstOfTurn.clear();
   }
 
   destroy(): void {

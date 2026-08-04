@@ -87,10 +87,10 @@ function SessionRow({ s, onOpen }: { s: SessionSummary; onOpen: (id: string) => 
 export function SessionsMenu() {
   const [open, setOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
 
   const { data: sessions, isLoading } = useQuery({
-    queryKey: ["sessions"],
+    queryKey: ["sessions", userId],
     queryFn: async () => {
       const token = await getToken();
       return listSessions(token ?? undefined);
@@ -99,7 +99,7 @@ export function SessionsMenu() {
   });
 
   const { data: detail } = useQuery({
-    queryKey: ["session", openId],
+    queryKey: ["session", openId, userId],
     queryFn: async () => {
       const token = await getToken();
       return getSession(openId as string, token ?? undefined);

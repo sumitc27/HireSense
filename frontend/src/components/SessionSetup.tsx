@@ -139,17 +139,17 @@ export function SessionSetup({
   return (
     <>
       {step === "form" ? (
-        <Card glass className="mx-auto mt-10 w-full max-w-md p-8">
-          <div className="mb-6 text-center">
-            <StylisedMicIcon className="mx-auto mb-3" />
+        <Card glass className="mx-auto mt-4 w-full max-w-md p-6">
+          <div className="mb-4 text-center">
+            <StylisedMicIcon className="mx-auto mb-2" />
             <h2 className="text-lg font-bold tracking-tight">Set up your mock interview</h2>
-            <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+            <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
               The coach asks role-specific questions out loud, scores each answer,
               and coaches you back — in real time.
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Role field */}
             <div>
               <label className="label-premium mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -160,7 +160,7 @@ export function SessionSetup({
                 list="role-presets"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                placeholder="e.g. backend engineer"
+                placeholder="e.g. ML Engineer"
                 className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring transition-shadow"
               />
               <datalist id="role-presets">
@@ -217,7 +217,7 @@ export function SessionSetup({
                   variant="outline"
                   size="icon"
                   className="h-8 w-8 rounded-full"
-                  disabled={questionCount >= 6}
+                  disabled={questionCount >= 4}
                   onClick={() => setQuestionCount((c) => Math.min(6, c + 1))}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -237,29 +237,28 @@ export function SessionSetup({
             </div>
 
             {/* Resume Upload Section */}
-            <div className="rounded-xl border border-dashed border-border/80 bg-muted/5 p-4 space-y-2.5">
+            <div className="rounded-xl border border-dashed border-border/80 bg-muted/5 p-3 space-y-2">
               <label className="label-premium flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <FileText className="h-3.5 w-3.5 text-[hsl(var(--accent-teal))]" />
                 Resume (Optional)
               </label>
 
               {!resumeFileName ? (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   <div
                     onClick={() => !isUploading && fileInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center py-5 px-3 rounded-xl border border-dashed border-border hover:border-[hsl(var(--accent-teal))]/50 bg-background cursor-pointer hover:bg-muted/10 transition-all text-center gap-2.5 group"
+                    className="flex items-center justify-center py-3 px-3 rounded-xl border border-dashed border-border hover:border-[hsl(var(--accent-teal))]/50 bg-background cursor-pointer hover:bg-muted/10 transition-all text-center gap-3 group"
                   >
                     {isUploading ? (
-                      <Loader2 className="h-6 w-6 text-[hsl(var(--accent-teal))] animate-spin" />
+                      <Loader2 className="h-5 w-5 text-[hsl(var(--accent-teal))] animate-spin shrink-0" />
                     ) : (
-                      <Upload className="h-6 w-6 text-muted-foreground group-hover:text-[hsl(var(--accent-teal))] transition-colors" />
+                      <Upload className="h-5 w-5 text-muted-foreground group-hover:text-[hsl(var(--accent-teal))] transition-colors shrink-0" />
                     )}
-                    <div className="space-y-1">
+                    <div className="flex items-center gap-2">
                       <p className="text-xs font-semibold text-foreground">
                         {isUploading ? "Uploading & parsing..." : "Upload your resume"}
                       </p>
-                      {/* File-type preview chips */}
-                      <div className="flex items-center justify-center gap-1.5 pt-0.5">
+                      <div className="flex items-center gap-1">
                         {FILE_TYPE_CHIPS.map((chip) => (
                           <span
                             key={chip.label}
@@ -440,6 +439,7 @@ function VerificationModal({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [micError, setMicError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [systemMuted, setSystemMuted] = useState(false);
 
   // Network check states
   const [networkLatency, setNetworkLatency] = useState<number | null>(null);
@@ -481,6 +481,57 @@ function VerificationModal({
       }
     };
   }, []);
+
+  // Detect system-level mic mute by analyzing actual audio levels
+  useEffect(() => {
+    if (!stream || isMuted) {
+      setSystemMuted(false);
+      return;
+    }
+    let active = true;
+    let audioCtx: AudioContext | null = null;
+    let silentSamples = 0;
+    const SILENT_THRESHOLD = 0.005; // RMS below this = silence
+    const REQUIRED_SILENT_CHECKS = 6; // 6 checks × 250ms = 1.5s of silence
+    let interval: number | null = null;
+
+    try {
+      audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = audioCtx.createAnalyser();
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+      analyser.fftSize = 512;
+      const buf = new Uint8Array(analyser.fftSize);
+
+      interval = window.setInterval(() => {
+        if (!active) return;
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (const v of buf) {
+          const c = (v - 128) / 128;
+          sum += c * c;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        if (rms < SILENT_THRESHOLD) {
+          silentSamples++;
+          if (silentSamples >= REQUIRED_SILENT_CHECKS) {
+            setSystemMuted(true);
+          }
+        } else {
+          silentSamples = 0;
+          setSystemMuted(false);
+        }
+      }, 250);
+    } catch (e) {
+      console.error("System mute detection failed", e);
+    }
+
+    return () => {
+      active = false;
+      if (interval !== null) clearInterval(interval);
+      if (audioCtx) audioCtx.close();
+    };
+  }, [stream, isMuted]);
 
   // Ping backend to measure latency
   useEffect(() => {
@@ -584,7 +635,7 @@ function VerificationModal({
   }[networkStatus];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-md p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 dark:bg-black/45 backdrop-blur-md p-4 animate-in fade-in duration-200">
       <div className="glass-card relative w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl animate-in zoom-in-95 duration-200">
         <button
           onClick={onClose}
@@ -631,11 +682,18 @@ function VerificationModal({
             ) : (
               <div className="space-y-2">
                 <MicVisualizer stream={stream} isMuted={isMuted} />
-                <p className="text-xs text-muted-foreground text-center">
-                  {isMuted
-                    ? "Microphone is muted. Click 'Muted' to unmute and test your voice."
-                    : "Speak to see your audio levels."}
-                </p>
+                {systemMuted && !isMuted ? (
+                  <p className="text-xs text-amber-500 font-medium text-center flex items-center justify-center gap-1">
+                    <MicOff className="h-3.5 w-3.5" />
+                    System microphone appears muted. Please unmute from your system settings or taskbar.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center">
+                    {isMuted
+                      ? "Microphone is muted. Click 'Muted' to unmute and test your voice."
+                      : "Speak to see your audio levels."}
+                  </p>
+                )}
               </div>
             )}
           </div>

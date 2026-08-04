@@ -137,6 +137,18 @@ def finish_session(session_id: str, status: str, overall_average: float, top_imp
         )
 
 
+def count_user_sessions_today(user_id: str) -> int:
+    init_db()
+    from datetime import datetime, timezone, timedelta
+    twenty_four_hours_ago = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat(timespec="seconds")
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM sessions WHERE user_id = ? AND created_at >= ?",
+            (user_id, twenty_four_hours_ago)
+        ).fetchone()
+        return row[0] if row else 0
+
+
 def list_sessions(user_id: str | None = None, limit: int = 50) -> list[dict]:
     init_db()
     with _conn() as conn:
