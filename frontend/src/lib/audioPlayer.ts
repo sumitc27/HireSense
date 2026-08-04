@@ -8,6 +8,7 @@
 
 export class AudioPlayer {
   private ctx: AudioContext | null = null;
+  public analyser: AnalyserNode | null = null;
   private sources: AudioBufferSourceNode[] = [];
   private nextStartTime = 0;
   /** Fired the moment the FIRST chunk of a turn actually starts playing —
@@ -17,7 +18,12 @@ export class AudioPlayer {
 
   /** Must be called from a user gesture (Start button) — autoplay policy. */
   init(): void {
-    if (!this.ctx) this.ctx = new AudioContext();
+    if (!this.ctx) {
+      this.ctx = new AudioContext();
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 512;
+      this.analyser.connect(this.ctx.destination);
+    }
     if (this.ctx.state === "suspended") void this.ctx.resume();
   }
 
@@ -30,7 +36,11 @@ export class AudioPlayer {
     const buffer = await this.ctx.decodeAudioData(wav.slice(0));
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
-    src.connect(this.ctx.destination);
+    if (this.analyser) {
+      src.connect(this.analyser);
+    } else {
+      src.connect(this.ctx.destination);
+    }
 
     const now = this.ctx.currentTime;
     const startAt = Math.max(now, this.nextStartTime);
@@ -76,6 +86,7 @@ export class AudioPlayer {
     this.flush();
     this.ctx?.close();
     this.ctx = null;
+    this.analyser = null;
     this.firstOfTurn.clear();
   }
 }

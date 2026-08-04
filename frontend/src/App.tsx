@@ -401,7 +401,14 @@ export default function App() {
                   <p className="text-xs text-muted-foreground">
                     {statusLabel[turnState] ?? ""}
                   </p>
-                  {!useTyped && <Waveform capture={captureRef.current} active={recording} />}
+                  {!useTyped && (
+                    <Waveform
+                      capture={captureRef.current}
+                      player={playerRef.current}
+                      userActive={recording}
+                      coachActive={speaking}
+                    />
+                  )}
                   {useTyped ? (
                     <div className="flex w-full items-end gap-2">
                       <TypedAnswerInput

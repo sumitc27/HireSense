@@ -1,13 +1,18 @@
 import { useEffect, useRef } from "react";
 import type { AudioCapture } from "@/lib/audioCapture";
+import type { AudioPlayer } from "@/lib/audioPlayer";
 
-/** Live mic waveform — canvas fed by the capture AnalyserNode each frame. */
+/** Live mic waveform — canvas fed by the capture or player AnalyserNode each frame. */
 export function Waveform({
   capture,
-  active,
+  player,
+  userActive,
+  coachActive,
 }: {
   capture: AudioCapture | null;
-  active: boolean;   // brighter while actually recording
+  player: AudioPlayer | null;
+  userActive: boolean;
+  coachActive: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -21,11 +26,25 @@ export function Waveform({
       raf = requestAnimationFrame(draw);
       const { width, height } = canvas;
       ctx2d.clearRect(0, 0, width, height);
-      const analyser = capture?.analyser;
-      const styles = getComputedStyle(document.documentElement);
-      const color = `hsl(${styles.getPropertyValue(active ? "--primary" : "--muted-foreground")})`;
+      let analyser = null;
+      let color = "hsl(var(--muted-foreground))";
+      let alpha = 0.4;
+
+      if (userActive) {
+        analyser = capture?.analyser;
+        color = "#e11d48"; // Rose-600 for recording
+        alpha = 1;
+      } else if (coachActive) {
+        analyser = player?.analyser;
+        color = "hsl(var(--accent-teal))"; // Teal for coach speaking
+        alpha = 1;
+      } else {
+        // Idle mode (capturing ambient but not recording)
+        analyser = capture?.analyser;
+      }
+
       ctx2d.strokeStyle = color;
-      ctx2d.globalAlpha = active ? 1 : 0.4;
+      ctx2d.globalAlpha = alpha;
       ctx2d.lineWidth = 2;
 
       if (!analyser) {
@@ -47,7 +66,7 @@ export function Waveform({
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [capture, active]);
+  }, [capture, player, userActive, coachActive]);
 
   return (
     <canvas
