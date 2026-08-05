@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     default_question_count: int = 2     # 3-5 main questions per session
     max_question_count: int = 6
     daily_session_limit: int = 3
+    premium_daily_limit: int = 10
+    premium_users: str = ""
     silence_timeout_seconds: int = 30   # open-mic: re-prompt after this long listening
     max_utterance_seconds: int = 90
 
@@ -66,6 +68,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def premium_user_list(self) -> list[str]:
+        return [u.strip() for u in self.premium_users.split(",") if u.strip()]
 
     @property
     def backend_root(self) -> Path:

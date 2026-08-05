@@ -109,8 +109,9 @@ async def ws_session(ws: WebSocket) -> None:
         
     # Enforce daily session limit for authenticated users
     if user_id != "anonymous-developer":
+        user_limit = settings.premium_daily_limit if user_id in settings.premium_user_list else settings.daily_session_limit
         sessions_today = sessions_store.count_user_sessions_today(user_id)
-        if sessions_today >= settings.daily_session_limit:
+        if sessions_today >= user_limit:
             await ws.accept()
             await ws.close(code=4003, reason="Daily session limit exceeded")
             import sys
@@ -141,12 +142,13 @@ class SessionDetail(SessionSummary):
 @app.get("/sessions/today_count")
 async def get_today_count(user_id: str = Depends(get_current_user_id)) -> dict:
     count = 0
+    user_limit = settings.premium_daily_limit if user_id in settings.premium_user_list else settings.daily_session_limit
     if user_id != "anonymous-developer":
         count = await asyncio.to_thread(sessions_store.count_user_sessions_today, user_id)
     return {
         "count": count,
-        "limit": settings.daily_session_limit,
-        "exceeded": count >= settings.daily_session_limit if user_id != "anonymous-developer" else False
+        "limit": user_limit,
+        "exceeded": count >= user_limit if user_id != "anonymous-developer" else False
     }
 
 
