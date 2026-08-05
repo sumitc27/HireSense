@@ -54,10 +54,16 @@ def init_db() -> None:
                 created_at TEXT NOT NULL,
                 overall_average REAL,
                 top_improvements TEXT,
-                user_id TEXT
+                user_id TEXT,
+                is_deleted BOOLEAN DEFAULT 0
             )
             """
         )
+        try:
+            conn.execute("ALTER TABLE sessions ADD COLUMN is_deleted BOOLEAN DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS turns (
@@ -154,11 +160,11 @@ def list_sessions(user_id: str | None = None, limit: int = 50) -> list[dict]:
     with _conn() as conn:
         if user_id:
             rows = conn.execute(
-                "SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT ?", (user_id, limit)
+                "SELECT * FROM sessions WHERE user_id = ? AND is_deleted = 0 ORDER BY created_at DESC LIMIT ?", (user_id, limit)
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?", (limit,)
+                "SELECT * FROM sessions WHERE is_deleted = 0 ORDER BY created_at DESC LIMIT ?", (limit,)
             ).fetchall()
     out = []
     for r in rows:
@@ -185,7 +191,7 @@ def _turn_row_to_dict(r: sqlite3.Row) -> dict:
 def get_session(session_id: str, user_id: str | None = None) -> dict | None:
     init_db()
     with _conn() as conn:
-        session_row = conn.execute("SELECT * FROM sessions WHERE id = ?", (session_id,)).fetchone()
+        session_row = conn.execute("SELECT * FROM sessions WHERE id = ? AND is_deleted = 0", (session_id,)).fetchone()
         if session_row is None:
             return None
         d = dict(session_row)
@@ -207,5 +213,5 @@ def delete_session(session_id: str, user_id: str | None = None) -> None:
             row = conn.execute("SELECT user_id FROM sessions WHERE id = ?", (session_id,)).fetchone()
             if not row or row["user_id"] != user_id:
                 return
-        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        conn.execute("UPDATE sessions SET is_deleted = 1 WHERE id = ?", (session_id,))
         conn.execute("DELETE FROM turns WHERE session_id = ?", (session_id,))
