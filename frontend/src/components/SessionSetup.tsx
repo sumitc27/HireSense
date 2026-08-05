@@ -33,11 +33,16 @@ import { useAuth } from "@clerk/react";
 
 const SENIORITIES = ["junior", "mid-level", "senior", "staff"] as const;
 const ROLE_PRESETS = [
-  "backend engineer",
-  "frontend engineer",
-  "full-stack engineer",
-  "data scientist",
-  "product manager",
+  "Full-stack Developer",
+  "ML Engineer",
+  "Data Analyst",
+  "Mechanical Design Engineer",
+  "Robotics Engineer",
+  "Consultant",
+  "AI Engineer",
+  "Data Scientist",
+  "Business Analyst",
+  "Product Manager",
 ];
 
 const FILE_TYPE_CHIPS = [
@@ -80,7 +85,7 @@ export function SessionSetup({
   starting: boolean;
 }) {
   const { getToken } = useAuth();
-  const [role, setRole] = useState(ROLE_PRESETS[0]);
+  const [role, setRole] = useState("");
   const [seniority, setSeniority] = useState<(typeof SENIORITIES)[number]>("senior");
   const [questionCount, setQuestionCount] = useState(3);
   const [step, setStep] = useState<"form" | "review">("form");

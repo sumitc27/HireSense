@@ -145,6 +145,18 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (phase !== "live") return;
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "Refreshing the page will end your interview session. You cannot resume it.";
+    };
+    
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [phase]);
+
   async function start(values: SessionSetupValues) {
     setPhase("connecting");
     const token = await getToken();
