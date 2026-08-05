@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # --- Session behavior ---
     default_question_count: int = 2
     max_question_count: int = 6
-    daily_session_limit: int = 10
+    daily_session_limit: int = 5
     premium_daily_limit: int = 10
     premium_users: str = ""
     silence_timeout_seconds: int = 30   # open-mic: re-prompt after this long listening
