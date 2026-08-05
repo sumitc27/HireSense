@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { Printer, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Rubric } from "@/lib/ws";
@@ -33,7 +34,7 @@ export function ReportCard({
   report: ReportLike;
   onNewInterview?: () => void;
 }) {
-  return (
+  const content = (
     <div className="mx-auto w-full max-w-2xl space-y-4">
       <div className="text-center">
         <h2 className="text-lg font-semibold">Interview report</h2>
@@ -56,7 +57,7 @@ export function ReportCard({
 
       <div className="space-y-3">
         {report.turns.map((t) => (
-          <div key={t.turn_id} className="break-inside-avoid">
+          <div key={t.turn_id}>
             <p className="mb-1 text-xs font-medium text-muted-foreground">
               {t.is_follow_up ? "Follow-up" : `Question ${t.question_index + 1}`}: {t.question_text}
             </p>
@@ -67,17 +68,31 @@ export function ReportCard({
           </div>
         ))}
       </div>
-
-      <div className="no-print flex justify-center gap-2 pt-2">
-        <Button variant="outline" onClick={() => window.print()}>
-          <Printer className="h-4 w-4" /> Print
-        </Button>
-        {onNewInterview && (
-          <Button onClick={onNewInterview}>
-            <RotateCcw className="h-4 w-4" /> New interview
-          </Button>
-        )}
-      </div>
     </div>
+  );
+
+  return (
+    <>
+      <div className="no-print">
+        {content}
+        <div className="flex justify-center gap-2 pt-6">
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" /> Print
+          </Button>
+          {onNewInterview && (
+            <Button onClick={onNewInterview}>
+              <RotateCcw className="h-4 w-4" /> New interview
+            </Button>
+          )}
+        </div>
+      </div>
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div className="hidden print-override px-8 py-8">
+            {content}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }

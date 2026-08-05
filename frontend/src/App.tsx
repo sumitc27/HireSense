@@ -367,12 +367,12 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="bg-decorations flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="bg-decorations flex print:block h-screen print:h-auto w-screen print:w-auto flex-col overflow-hidden print:overflow-visible bg-background text-foreground">
         <AppHeader>
           {phase === "live" && <LatencyBadge stages={latency} />}
         </AppHeader>
 
-        <main className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-6 py-6">
+        <main className="flex print:block min-h-0 flex-1 flex-col items-center overflow-y-auto print:overflow-visible px-6 py-6">
           <Show when="signed-in">
             {phase === "setup" || phase === "connecting" ? (
               <SessionSetup onStart={start} starting={phase === "connecting"} />

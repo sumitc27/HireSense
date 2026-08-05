@@ -274,10 +274,19 @@ body {
   header, .no-print {
     display: none !important;
   }
-  body, #root, main {
+  body > *:not(.print-override) {
+    display: none !important;
+  }
+  .print-override {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
     height: auto !important;
+    max-height: none !important;
     overflow: visible !important;
     background: white !important;
-    color: black !important;
+    z-index: 999999 !important;
   }
 }

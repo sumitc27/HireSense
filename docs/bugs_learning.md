@@ -33,3 +33,13 @@ This document catalogs the key backend logic bugs, architectural decisions, and 
 * **The Issue:** Git rejected a `git push` because commits were made directly on the GitHub website (e.g., editing `config.py`) while completely separate commits were made locally in the IDE.
 * **The Learning:** When branches diverge, using a standard `git pull` creates an ugly "merge commit". Instead, using `git pull --rebase origin main` is the professional standard. It temporarily undoes local commits, downloads the remote GitHub commits, and cleanly pastes the local commits on top. This keeps the Git history perfectly linear.
 
+
+## 7. Printing React Components & Radix UI Dialogs
+* **The Bug:** Attempting to print an interview report failed to span multiple pages, clipping everything after the first page. Initially, it seemed like a standard CSS Flexbox/height constraint issue on the main `App.tsx` layout. However, the report was actually rendering inside a Radix UI `<Dialog>` from the history menu.
+* **The Root Cause:** Modal Dialogs (like Radix UI) inject themselves into the DOM using `position: fixed` and `transform: translate(-50%, -50%)`, locking them to the center of the viewport with a max height (`max-h-[85vh]`). The Chrome/Safari print engines will take a literal snapshot of this locked container and refuse to paginate it, because fixed positioning inherently prevents content from breaking across pages.
+* **The Fix (React Print Portal):** Instead of wrestling with aggressively overriding the dialog's CSS or Tailwind flex constraints, the most robust solution is to bypass the layout engine entirely.
+    1. A `content` variable is created in `ReportCard.tsx` containing the report body.
+    2. The standard report is rendered in the dialog for the screen (with a `.no-print` class).
+    3. A **clone** of the report is rendered dynamically using `createPortal` at the end of `document.body` inside a `.print-override` container.
+    4. In `index.css`, `@media print` is configured to `display: none !important` all root elements (`body > *:not(.print-override)`) and exclusively show the `.print-override` clone with `position: absolute`, `top: 0`, and `height: auto`.
+* **The Learning:** When trying to print deeply nested React components or modals, do not try to override the entire component tree's CSS. Instead, use a React Portal to render a clean, unconstrained clone directly into the `body` and use `@media print` to hide the rest of the application. The browser's native print engine will paginate this perfectly.
