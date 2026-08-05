@@ -185,7 +185,7 @@ export default function App() {
       onClose: (code) => {
         captureRef.current?.stopOpenMic();
         if (code === 4003) {
-          toast.error("Daily interview limit reached (max 2 interviews per 24h). Please try again tomorrow!");
+          toast.error("Your daily interview limit has been reached. Please try again tomorrow!");
         } else if (code === 4008) {
           toast.error("Session closed: Authentication required.");
         } else {
@@ -497,7 +497,7 @@ export default function App() {
           <AlertDialogHeader>
             <AlertDialogTitle>Daily Limit Reached</AlertDialogTitle>
             <AlertDialogDescription className="text-sm">
-              Your daily limit of 2 interviews/day has been reached.
+              Your daily interview limit has been reached.
               <br /><br />
               Please visit again after 24 hours.
             </AlertDialogDescription>
