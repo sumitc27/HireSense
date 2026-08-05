@@ -37,8 +37,9 @@ Thumbs.db
 
 
 #other files
-plan.md
 backend/eval/
-.env.example
-GUIDE.md
-Structure.md
+doc/deployment
+docs/GUIDE.md
+docs/plan.md
+docs/Structure.md
+docs/deployment.md

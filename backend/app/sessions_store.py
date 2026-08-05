@@ -1,9 +1,5 @@
 """Session history: persists each interview session + its turns so a report
 survives a backend restart and can be reopened from the sessions menu.
-
-Same WAL + busy_timeout + retry-on-lock pattern as TaskPilot's ``runs_store``
-(this backend has only one writer, but WAL still lets the eval scripts read
-concurrently without blocking a live session's writes).
 """
 from __future__ import annotations
 

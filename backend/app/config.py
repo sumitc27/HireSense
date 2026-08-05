@@ -8,8 +8,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# config.py lives at hiresense/backend/app/config.py:
-#   parents[1] = hiresense/backend   parents[2] = hiresense
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -50,7 +48,7 @@ class Settings(BaseSettings):
     kokoro_speed: float = 1.0
 
     # --- Session behavior ---
-    default_question_count: int = 2     # 3-5 main questions per session
+    default_question_count: int = 2
     max_question_count: int = 6
     daily_session_limit: int = 3
     premium_daily_limit: int = 10
