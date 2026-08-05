@@ -141,7 +141,7 @@ export function SessionSetup({
       {step === "form" ? (
         <Card glass className="mx-auto mt-4 w-full max-w-md p-6">
           <div className="mb-4 text-center">
-            <StylisedMicIcon className="mx-auto mb-2" />
+            <img src="/HireSense.png" alt="HireSense Logo" className="mx-auto mb-1 h-12 w-12 rounded-[20px] object-contain shadow-m" />
             <h2 className="text-lg font-bold tracking-tight">Set up your mock interview</h2>
             <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
               The coach asks role-specific questions out loud, scores each answer,

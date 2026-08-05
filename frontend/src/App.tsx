@@ -38,7 +38,7 @@ type Phase = "setup" | "connecting" | "live" | "done";
 // the coach is still talking ("asking"/"coaching") — pressing then is a
 // barge-in: pressStart() flushes local playback and sends `barge_in` before
 // recording starts.
-const MIC_ENABLED_STATES = new Set(["listening", "asking", "coaching"]);
+const MIC_ENABLED_STATES = new Set(["listening"]);
 
 export default function App() {
   const { getToken } = useAuth();

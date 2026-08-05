@@ -32,11 +32,11 @@ export function Waveform({
 
       if (userActive) {
         analyser = capture?.analyser;
-        color = "#e11d48"; // Rose-600 for recording
+        color = "#22c55e"; // Green for user
         alpha = 1;
       } else if (coachActive) {
         analyser = player?.analyser;
-        color = "hsl(var(--accent-teal))"; // Teal for coach speaking
+        color = "#3b82f6"; // Blue for coach
         alpha = 1;
       } else {
         // Idle mode (capturing ambient but not recording)
