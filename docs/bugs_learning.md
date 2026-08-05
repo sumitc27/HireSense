@@ -2,9 +2,9 @@
 
 This document catalogs the key backend logic bugs, architectural decisions, and Git workflows learned during the development of HireSense.
 
-## 1. Resolving Git Diverged Branches (The Rebase Workflow)
-* **The Issue:** Git rejected a `git push` because commits were made directly on the GitHub website (e.g., editing `config.py`) while completely separate commits were made locally in the IDE.
-* **The Learning:** When branches diverge, using a standard `git pull` creates an ugly "merge commit". Instead, using `git pull --rebase origin main` is the professional standard. It temporarily undoes local commits, downloads the remote GitHub commits, and cleanly pastes the local commits on top. This keeps the Git history perfectly linear.
+## 1. Premium User Tiers via Clerk Authentication
+* **The Logic:** Added the ability to assign massive daily limits to specific administrators or premium users.
+* **The Implementation:** By adding `PREMIUM_USERS=user_2abc123` and `PREMIUM_DAILY_LIMIT=100` to Azure, the backend dynamically checks the Clerk JWT `sub` (User ID). If the authenticated user matches the list, they bypass the standard limit entirely.
 
 ## 2. Centralized Configuration (Pydantic & Azure)
 * **The Issue:** Hardcoding limits like "Max 2 interviews" in both the React frontend and Python backend causes a maintenance nightmare if the limit needs to change.
@@ -29,6 +29,7 @@ This document catalogs the key backend logic bugs, architectural decisions, and 
     4. The rate-limit query (`count_user_sessions_today`) ignores the flag and counts *all* sessions created in the last 24 hours.
 * **The Storage Optimization:** To prevent database bloat, the heavy AI grading and transcription data in the `turns` table is still permanently hard-deleted. Only the tiny "tombstone" summary row in the `sessions` table remains to enforce the limit.
 
-## 6. Premium User Tiers via Clerk Authentication
-* **The Logic:** Added the ability to assign massive daily limits to specific administrators or premium users.
-* **The Implementation:** By adding `PREMIUM_USERS=user_2abc123` and `PREMIUM_DAILY_LIMIT=100` to Azure, the backend dynamically checks the Clerk JWT `sub` (User ID). If the authenticated user matches the list, they bypass the standard limit entirely.
+## 6. Resolving Git Diverged Branches (The Rebase Workflow)
+* **The Issue:** Git rejected a `git push` because commits were made directly on the GitHub website (e.g., editing `config.py`) while completely separate commits were made locally in the IDE.
+* **The Learning:** When branches diverge, using a standard `git pull` creates an ugly "merge commit". Instead, using `git pull --rebase origin main` is the professional standard. It temporarily undoes local commits, downloads the remote GitHub commits, and cleanly pastes the local commits on top. This keeps the Git history perfectly linear.
+
