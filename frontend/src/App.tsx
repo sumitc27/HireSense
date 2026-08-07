@@ -200,31 +200,61 @@ export default function App() {
       toast.error("Microphone access denied — voice input unavailable. Type your answers instead.");
     }
 
-    const socket = new VoiceSocket({
-      onEvent,
-      onAudio: (wav, meta) => void player.enqueue(wav, meta.turn_id),
-      onClose: (code) => {
-        captureRef.current?.stopOpenMic();
-        if (code === 4003) {
-          toast.error("Your daily interview limit has been reached. Please try again tomorrow!");
-        } else if (code === 4008) {
-          toast.error("Session closed: Authentication required.");
-        } else {
-          toast.info("Session ended.");
-        }
-      },
-      onError: () => toast.error("Connection failed — is the backend running on :8002?"),
-    });
-    player.onFirstPlayback = (turnId) =>
-      socket.send({ type: "playback_started", turn_id: turnId, seq: 0 });
-
+    let socket: VoiceSocket;
     try {
       const token = await getToken();
-      await socket.connect(token ?? undefined);
+
+      const connectWithRetry = async (maxWaitMs = 30000): Promise<VoiceSocket> => {
+        const startTime = Date.now();
+        let isFirstFailure = true;
+
+        while (true) {
+          const s = new VoiceSocket({
+            onEvent,
+            onAudio: (wav, meta) => void player.enqueue(wav, meta.turn_id),
+            onClose: (code) => {
+              captureRef.current?.stopOpenMic();
+              if (code === 4003) {
+                toast.error("Your daily interview limit has been reached. Please try again tomorrow!");
+              } else if (code === 4008) {
+                toast.error("Session closed: Authentication required.");
+              } else {
+                toast.info("Session ended.");
+              }
+            },
+            // We handle the connection error via the promise rejection in the loop below.
+            onError: () => {}, 
+          });
+
+          try {
+            await s.connect(token ?? undefined);
+            if (!isFirstFailure) {
+              toast.success("Backend is ready, starting interview!");
+            }
+            return s;
+          } catch (e) {
+            if (isFirstFailure) {
+              toast.info("The AI coach is waking up. This takes about 30 seconds, please wait...", { duration: 10000 });
+              isFirstFailure = false;
+            }
+            if (Date.now() - startTime > maxWaitMs) {
+              throw new Error("Timeout waiting for backend");
+            }
+            await new Promise((r) => setTimeout(r, 2000));
+          }
+        }
+      };
+
+      socket = await connectWithRetry(30000);
       socketRef.current = socket;
+      
+      player.onFirstPlayback = (turnId) =>
+        socket.send({ type: "playback_started", turn_id: turnId, seq: 0 });
+
       socket.startSession(values.role, values.seniority, values.questionCount, values.resumeText);
       setPhase("live");
     } catch {
+      toast.error("Some technical issue occurred. Please try again later.");
       setPhase("setup");
       capture.destroy();
       player.destroy();
