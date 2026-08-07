@@ -458,6 +458,12 @@ class SessionController:
             return
         self._disarm_silence_watchdog()
         self.clock = None  # no voice latency to report for a typed answer
+        
+        # Send the typed text back as an stt_result so the frontend renders it
+        # in the captions list, exactly as it does for voice input.
+        await self.send_event("stt_result", turn_id=self.current_turn_id, text=text,
+                              language="english", stt_ms=0)
+                              
         await self.handle_answer(text, source="typed")
 
     # ---- main loop --------------------------------------------------------------
