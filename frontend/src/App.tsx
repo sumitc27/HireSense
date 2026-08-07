@@ -24,6 +24,7 @@ import { Show, SignInButton, SignUpButton, useAuth } from "@clerk/react";
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -49,6 +50,7 @@ export default function App() {
   const { getToken } = useAuth();
   useApplyTheme();
   const [showLimitDialog, setShowLimitDialog] = useState(false);
+  const [showEndDialog, setShowEndDialog] = useState(false);
   const storedMicMode = useStore((s) => s.micMode);
   const setMicMode = useStore((s) => s.setMicMode);
   // When the feature flag is off, force push-to-talk regardless of stored pref.
@@ -440,7 +442,7 @@ export default function App() {
                           <MicIcon className="h-3.5 w-3.5" /> Voice
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" onClick={stop}>
+                      <Button variant="outline" size="sm" onClick={() => setShowEndDialog(true)}>
                         <PhoneOff className="h-3.5 w-3.5" /> End
                       </Button>
                     </div>
@@ -457,6 +459,9 @@ export default function App() {
                           {micMode === "ptt" ? "Push-to-talk" : "Open mic"}
                         </Button>
                       )}
+                      <Button variant="outline" size="sm" onClick={() => setShowTyped(true)}>
+                        <Keyboard className="h-3.5 w-3.5" /> Type instead
+                      </Button>
                       {micMode === "ptt" ? (
                         <MicControl
                           enabled={micOk && MIC_ENABLED_STATES.has(turnState)}
@@ -472,10 +477,7 @@ export default function App() {
                           />
                         </div>
                       )}
-                      <Button variant="outline" size="sm" onClick={() => setShowTyped(true)}>
-                        <Keyboard className="h-3.5 w-3.5" /> Type instead
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={stop}>
+                      <Button variant="outline" size="sm" onClick={() => setShowEndDialog(true)}>
                         <PhoneOff className="h-3.5 w-3.5" /> End
                       </Button>
                     </div>
@@ -491,9 +493,11 @@ export default function App() {
           </Show>
           <Show when="signed-out">
             <div className="mx-auto mt-20 max-w-md w-full text-center space-y-6 rounded-2xl border border-border bg-card/45 backdrop-blur-md p-8 shadow-2xl">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[hsl(var(--accent-teal))] to-[hsl(172,66%,30%)] text-white mx-auto shadow-sm">
-                <MicIcon className="h-6 w-6" />
-              </div>
+              <img
+                src="/HireSense.png"
+                alt="HireSense Logo"
+                className="h-12 w-12 rounded-full mx-auto shadow-sm object-cover"
+              />
               <div className="space-y-2">
                 <h2 className="text-xl font-bold tracking-tight text-foreground">Welcome to HireSense</h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
@@ -526,6 +530,32 @@ export default function App() {
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setShowLimitDialog(false)}>
               Okay
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Interview?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              Are you sure you want to end this interview?
+              <br /><br />
+              Any progress will be lost and you will not be able to resume this session.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowEndDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => {
+                setShowEndDialog(false);
+                stop();
+              }}
+            >
+              End Interview
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
