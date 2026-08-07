@@ -40,12 +40,19 @@ type Phase = "setup" | "connecting" | "live" | "done";
 // recording starts.
 const MIC_ENABLED_STATES = new Set(["listening"]);
 
+// ── Feature flag: open-mic mode ──────────────────────────────────────────
+// Set to `true` to re-enable the open-mic / VAD toggle in the live UI.
+// See docs/inactive_features.md for full reactivation instructions.
+const ENABLE_OPEN_MIC = false;
+
 export default function App() {
   const { getToken } = useAuth();
   useApplyTheme();
   const [showLimitDialog, setShowLimitDialog] = useState(false);
-  const micMode = useStore((s) => s.micMode);
+  const storedMicMode = useStore((s) => s.micMode);
   const setMicMode = useStore((s) => s.setMicMode);
+  // When the feature flag is off, force push-to-talk regardless of stored pref.
+  const micMode = ENABLE_OPEN_MIC ? storedMicMode : "ptt" as const;
 
   const [phase, setPhase] = useState<Phase>("setup");
   const [recording, setRecording] = useState(false);
@@ -439,15 +446,17 @@ export default function App() {
                     </div>
                   ) : (
                     <div className="flex items-center gap-4">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setMicMode(micMode === "ptt" ? "open_mic" : "ptt")}
-                        title="Toggle push-to-talk vs. open mic"
-                      >
-                        {micMode === "ptt" ? <Hand className="h-3.5 w-3.5" /> : <Ear className="h-3.5 w-3.5" />}
-                        {micMode === "ptt" ? "Push-to-talk" : "Open mic"}
-                      </Button>
+                      {ENABLE_OPEN_MIC && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMicMode(micMode === "ptt" ? "open_mic" : "ptt")}
+                          title="Toggle push-to-talk vs. open mic"
+                        >
+                          {micMode === "ptt" ? <Hand className="h-3.5 w-3.5" /> : <Ear className="h-3.5 w-3.5" />}
+                          {micMode === "ptt" ? "Push-to-talk" : "Open mic"}
+                        </Button>
+                      )}
                       {micMode === "ptt" ? (
                         <MicControl
                           enabled={micOk && MIC_ENABLED_STATES.has(turnState)}
