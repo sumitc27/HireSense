@@ -207,6 +207,7 @@ export default function App() {
       const connectWithRetry = async (maxWaitMs = 30000): Promise<VoiceSocket> => {
         const startTime = Date.now();
         let isFirstFailure = true;
+        let hasConnected = false;
 
         while (true) {
           const s = new VoiceSocket({
@@ -218,7 +219,7 @@ export default function App() {
                 toast.error("Your daily interview limit has been reached. Please try again tomorrow!");
               } else if (code === 4008) {
                 toast.error("Session closed: Authentication required.");
-              } else {
+              } else if (hasConnected) {
                 toast.info("Session ended.");
               }
             },
@@ -228,6 +229,7 @@ export default function App() {
 
           try {
             await s.connect(token ?? undefined);
+            hasConnected = true;
             if (!isFirstFailure) {
               toast.success("Backend is ready, starting interview!");
             }
