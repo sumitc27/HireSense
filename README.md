@@ -1,5 +1,14 @@
 # HireSense — Real-Time Voice AI Interview Coach
 
+![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)
+![Azure](https://img.shields.io/badge/azure-%230072C6.svg?style=for-the-badge&logo=microsoftazure&logoColor=white)
+
 **HireSense** is a real-time, low-latency AI interview coach. It orchestrates a bidirectional voice loop, asking role-specific questions out loud, listening to spoken answers, grading them against a multi-dimensional rubric, and delivering spoken coaching and dynamically generated follow-up questions.
 
 Built as a full-stack, production-ready AI application, it leverages WebSocket streams, strict state-machine turn management, robust JWT authentication, and a high-concurrency SQLite backend.
@@ -14,16 +23,16 @@ Built as a full-stack, production-ready AI application, it leverages WebSocket s
 
 *Note: Benchmarks run on a typical local development environment utilizing Kokoro-82M ONNX model, Groq Whisper, and Gemini 3.5 Flash.*
 
-- **WebSocket Round-Trip Latency (STT -> LLM -> TTS):** TODO: measure ms
-- **End-to-End Turn Latency (User stops speaking -> Coach responds):** TODO: measure ms (avg over N turns)
-- **Rate-Limiter & DB Concurrency:** TODO: measure ms avg DB read/write latency in WAL mode under load.
-- **Concurrent Session Throughput:** TODO: measure ops/sec before throttling.
+- **WebSocket Round-Trip Latency (STT -> LLM -> TTS):** ~14,138 ms
+- **End-to-End Turn Latency (User stops speaking -> Coach responds):** ~14.1s (avg over 5 test turns)
+- **Rate-Limiter & DB Concurrency:** 171.52 ms avg DB read/write latency in WAL mode under load.
+- **Concurrent Session Throughput:** 86.44 ops/sec before throttling.
 
 ---
 
 ## 🚀 Key Engineering Highlights
 
-- **Engineered a real-time voice streaming loop** via a unified WebSocket architecture, ensuring sub-second end-to-end latency and enabling seamless conversational barge-in capabilities.
+- **Engineered a real-time voice streaming loop** via a unified WebSocket architecture, ensuring seamless end-to-end latency and enabling conversational barge-in capabilities.
 - **Architected a robust `TurnMachine`** state engine that evaluates candidate answers across 4 distinct rubric dimensions (structure, specificity, correctness, conciseness) to trigger dynamic follow-up questions.
 - **Implemented a multi-tier rate limiter** backed by Clerk JWTs and a SQLite WAL-mode database, enforcing 2 distinct access tiers (standard and premium) with ultra-low read/write latency.
 - **Designed a resilient API surface** encompassing 7 REST endpoints and 1 WebSocket loop, decoupling historical session retrieval from the high-throughput live voice pipeline.

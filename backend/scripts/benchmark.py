@@ -136,7 +136,7 @@ def benchmark_db_concurrency():
 
 async def main():
     tts.warm_up()
-    await benchmark_pipeline()
+    # await benchmark_pipeline()
     benchmark_db_concurrency()
 
 if __name__ == "__main__":
